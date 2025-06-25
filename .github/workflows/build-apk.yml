@@ -104,11 +104,11 @@ jobs:
             exit 1
           fi
 
-          if [ -f "$PROJECT_DIR/mobile_controller_app.py" ]; then
-            cp "$PROJECT_DIR/mobile_controller_app.py" build_dir/
-            echo "✅ Copied mobile_controller_app.py"
+          if [ -f "$PROJECT_DIR/controller_app.py" ]; then
+            cp "$PROJECT_DIR/controller_app.py" build_dir/
+            echo "✅ Copied controller_app.py"
           else
-            echo "❌ mobile_controller_app.py not found in $PROJECT_DIR"
+            echo "❌ controller_app.py not found in $PROJECT_DIR"
             exit 1
           fi
 
