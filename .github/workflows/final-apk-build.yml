@@ -56,13 +56,37 @@ jobs:
         $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-27"
         $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;27.0.3"
 
-        # Add build-tools to PATH
+        # Create legacy tools directory and android tool for P4A 2021.9.5
+        mkdir -p $HOME/android-sdk/tools/bin
+
+        # Create fake android tool that P4A 2021.9.5 expects
+        cat > $HOME/android-sdk/tools/bin/android << 'EOF'
+#!/bin/bash
+# Fake android tool for P4A compatibility
+if [ "$1" = "list" ] && [ "$2" = "target" ]; then
+  echo "Available Android targets:"
+  echo "----------"
+  echo "id: 1 or \"android-27\""
+  echo "     Name: Android 8.1 (API level 27)"
+  echo "     Type: Platform"
+  echo "     API level: 27"
+  echo "     Revision: 3"
+else
+  echo "Android SDK Manager"
+  echo "Usage: android [global options] action [action options]"
+fi
+EOF
+        chmod +x $HOME/android-sdk/tools/bin/android
+
+        # Add all tools to PATH
+        echo "$HOME/android-sdk/tools/bin" >> $GITHUB_PATH
         echo "$HOME/android-sdk/build-tools/27.0.3" >> $GITHUB_PATH
 
-        echo "Real Android SDK installed successfully"
+        echo "Real Android SDK with legacy compatibility installed successfully"
         echo "Verifying tools:"
         ls -la $HOME/android-sdk/cmdline-tools/latest/bin/
-        ls -la $HOME/android-sdk/build-tools/28.0.3/ | head -10
+        ls -la $HOME/android-sdk/tools/bin/
+        ls -la $HOME/android-sdk/build-tools/27.0.3/ | head -10
 
     - name: Install Python packages and dependencies
       run: |
@@ -119,11 +143,12 @@ jobs:
         python --version
         p4a --version || echo "P4A not found"
 
-        # Test real Android tools
-        echo "Testing real Android tools:"
+        # Test Android tools that P4A 2021.9.5 expects
+        echo "Testing Android tools for P4A 2021.9.5:"
         echo "ANDROID_HOME: $ANDROID_HOME"
         echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
         which sdkmanager && sdkmanager --version || echo "sdkmanager test failed"
+        which android && android list target || echo "android tool test failed"
         which adb && adb version || echo "adb test failed"
         find $ANDROID_HOME -name "aidl" -type f || echo "AIDL not found"
 
