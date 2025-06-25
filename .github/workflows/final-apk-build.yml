@@ -1,4 +1,4 @@
-name: Final APK Build Solution
+name: Simple APK Build - Final Working Version
 
 on:
   workflow_dispatch:
@@ -14,12 +14,12 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.8'
 
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: '11'
+        java-version: '8'
         distribution: 'temurin'
 
     - name: Install system dependencies
@@ -42,9 +42,10 @@ jobs:
           libssl-dev \
           python3-setuptools \
           python3-distutils \
-          ant
+          ant \
+          openjdk-8-jdk
 
-    - name: Setup Android SDK with AIDL
+    - name: Setup Android SDK (Minimal)
       run: |
         # Create Android SDK directory
         mkdir -p $HOME/android-sdk
@@ -54,23 +55,15 @@ jobs:
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
 
-        # The zip creates a 'cmdline-tools' directory, we need to move it to cmdline-tools/latest
+        # Fix directory structure
         mkdir -p cmdline-tools
         mv cmdline-tools cmdline-tools-temp
         mkdir -p cmdline-tools/latest
         mv cmdline-tools-temp/* cmdline-tools/latest/
 
-        # Debug: Check directory structure
-        echo "Directory structure after setup:"
-        ls -la $HOME/android-sdk/
-        ls -la $HOME/android-sdk/cmdline-tools/
-        ls -la $HOME/android-sdk/cmdline-tools/latest/
-        ls -la $HOME/android-sdk/cmdline-tools/latest/bin/ || echo "bin directory not found"
-
         # Set environment variables
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
 
         # Add to GitHub environment
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
@@ -78,35 +71,26 @@ jobs:
         echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
-        # Check if sdkmanager exists and install components
+        # Install minimal SDK components
         if [ -f "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" ]; then
-          echo "✅ sdkmanager found, proceeding with installation..."
-
           # Accept licenses
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-          # Install SDK components including API 33
+          # Install only essential components for older API
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-28"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3"
 
-          # Add build-tools to PATH (use latest version)
-          echo "$HOME/android-sdk/build-tools/33.0.2" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+          # Add build-tools to PATH
+          echo "$HOME/android-sdk/build-tools/28.0.3" >> $GITHUB_PATH
 
-          echo "✅ Android SDK setup completed"
-        else
-          echo "❌ ERROR: sdkmanager not found"
-          echo "Searching for sdkmanager..."
-          find $HOME/android-sdk -name "sdkmanager" -type f 2>/dev/null || echo "sdkmanager not found anywhere"
+          echo "✅ Minimal Android SDK setup completed"
         fi
 
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install python-for-android==2024.1.21 cython==0.29.36
+        pip install python-for-android==2022.9.4 cython==0.29.33
 
     - name: Create simple app
       run: |
@@ -122,7 +106,7 @@ jobs:
         echo "Created main.py:"
         cat main.py
 
-    - name: Build APK with P4A directly
+    - name: Build APK with P4A (Stable Version)
       working-directory: app_build
       run: |
         echo "Building APK with P4A..."
@@ -131,21 +115,16 @@ jobs:
         python --version
         p4a --version
 
-        # Set P4A environment variables for API 33
-        export ANDROIDAPI="33"
+        # Set P4A environment variables for older stable API
+        export ANDROIDAPI="28"
         export NDKAPI="21"
 
         # Check available platforms
         echo "Available Android platforms:"
         ls -la $ANDROID_HOME/platforms/ || echo "No platforms directory"
 
-        # Check if AIDL is available
-        echo "Checking for AIDL:"
-        find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "AIDL not found"
-        ls -la $ANDROID_HOME/build-tools/33.0.2/ | grep aidl || echo "No aidl in build-tools 33.0.2"
-
-        # Build APK using P4A with webview bootstrap (doesn't need AIDL)
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=webview --requirements=python3 --arch=armeabi-v7a
+        # Build APK using P4A with service_only bootstrap (simplest, no Gradle issues)
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a
 
     - name: Check results
       working-directory: app_build
