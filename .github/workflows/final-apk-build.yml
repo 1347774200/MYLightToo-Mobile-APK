@@ -22,10 +22,10 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
 
-    - name: Install Buildozer
+    - name: Install Buildozer and dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install buildozer==1.5.0
+        pip install buildozer==1.5.0 cython==0.29.36
 
         # Install system dependencies for buildozer
         sudo apt-get update
@@ -45,7 +45,16 @@ jobs:
           libffi-dev \
           libssl-dev \
           python3-setuptools \
-          python3-distutils
+          python3-distutils \
+          python3-dev \
+          libffi-dev \
+          libssl-dev
+
+        # Verify installations
+        echo "Installed packages:"
+        pip list | grep -E "(buildozer|cython)"
+        echo "Cython version:"
+        cython --version || echo "Cython not found in PATH"
 
     - name: Create simple app
       run: |
@@ -82,6 +91,11 @@ jobs:
         java -version
         python --version
         buildozer --version
+        cython --version || echo "Cython not found"
+
+        # Check buildozer.spec
+        echo "Buildozer spec content:"
+        head -20 buildozer.spec
 
         # Build APK using buildozer (handles all P4A complexity)
         buildozer android debug
