@@ -22,26 +22,51 @@ jobs:
         java-version: '8'
         distribution: 'temurin'
 
-    - name: Create minimal Android environment
+    - name: Create complete fake Android environment
       run: |
-        # Create fake Android SDK structure to satisfy buildozer
+        # Create comprehensive fake Android SDK structure
         mkdir -p $HOME/android-sdk/platforms/android-30
         mkdir -p $HOME/android-sdk/build-tools/30.0.3
         mkdir -p $HOME/android-sdk/platform-tools
+        mkdir -p $HOME/android-sdk/cmdline-tools/latest/bin
+        mkdir -p $HOME/android-sdk/tools/bin
 
         # Create fake aidl executable
         echo '#!/bin/bash' > $HOME/android-sdk/build-tools/30.0.3/aidl
-        echo 'echo "Fake AIDL for buildozer"' >> $HOME/android-sdk/build-tools/30.0.3/aidl
+        echo 'echo "Fake AIDL v1.0"' >> $HOME/android-sdk/build-tools/30.0.3/aidl
         chmod +x $HOME/android-sdk/build-tools/30.0.3/aidl
+
+        # Create fake sdkmanager executable
+        echo '#!/bin/bash' > $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
+        echo 'echo "Fake sdkmanager"' >> $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
+        echo 'echo "Available packages:"' >> $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
+        echo 'echo "platforms;android-30"' >> $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
+        chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
+
+        # Create fake android tool (legacy)
+        echo '#!/bin/bash' > $HOME/android-sdk/tools/bin/android
+        echo 'echo "Fake android tool"' >> $HOME/android-sdk/tools/bin/android
+        chmod +x $HOME/android-sdk/tools/bin/android
+
+        # Create fake adb
+        echo '#!/bin/bash' > $HOME/android-sdk/platform-tools/adb
+        echo 'echo "Fake ADB"' >> $HOME/android-sdk/platform-tools/adb
+        chmod +x $HOME/android-sdk/platform-tools/adb
 
         # Set environment variables
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/tools/bin" >> $GITHUB_PATH
         echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
-        echo "Fake Android SDK created at $HOME/android-sdk"
+        echo "Complete fake Android SDK created at $HOME/android-sdk"
+        echo "Fake tools created:"
+        ls -la $HOME/android-sdk/cmdline-tools/latest/bin/
+        ls -la $HOME/android-sdk/tools/bin/
         ls -la $HOME/android-sdk/build-tools/30.0.3/
+        ls -la $HOME/android-sdk/platform-tools/
 
     - name: Install Python packages only
       run: |
@@ -89,10 +114,14 @@ jobs:
         python --version
         p4a --version || echo "P4A not found"
 
-        # Check fake AIDL
-        echo "Checking fake AIDL:"
-        which aidl || echo "AIDL not in PATH"
-        aidl || echo "AIDL execution test"
+        # Test all fake tools
+        echo "Testing fake Android tools:"
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+        which aidl && aidl || echo "AIDL test failed"
+        which sdkmanager && sdkmanager --version || echo "sdkmanager test failed"
+        which android && android --help || echo "android tool test failed"
+        which adb && adb version || echo "adb test failed"
 
         # Set environment variables for P4A
         export ANDROIDAPI="30"
