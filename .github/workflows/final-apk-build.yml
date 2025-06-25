@@ -176,8 +176,43 @@ jobs:
         echo "Android SDK structure:"
         ls -la $ANDROID_HOME/
 
-        # Copy simple Android main file
-        cp android_main.py main.py
+        # Create simple Android main file directly
+        cat > simple_main.py << 'EOF'
+#!/usr/bin/env python3
+# Simple Python service for Android APK
+import time
+import os
+import sys
+
+def main():
+    print("Python service started on Android!")
+    print(f"Python version: {sys.version}")
+    print(f"Platform: {sys.platform}")
+
+    # Create a simple log file
+    log_path = "/sdcard/python_service.log"
+    try:
+        with open(log_path, "w") as f:
+            f.write("Python service is running!\n")
+            f.write(f"Time: {time.ctime()}\n")
+            f.write(f"Python version: {sys.version}\n")
+        print(f"Log written to {log_path}")
+    except Exception as e:
+        print(f"Could not write log: {e}")
+
+    # Keep service running for a short time
+    for i in range(5):
+        print(f"Service tick {i+1}")
+        time.sleep(2)
+
+    print("Service completed successfully!")
+
+if __name__ == "__main__":
+    main()
+EOF
+
+        # Use the simple main file
+        cp simple_main.py main.py
 
         # Try building with empty bootstrap first (simplest)
         echo "Building APK with empty bootstrap..."
