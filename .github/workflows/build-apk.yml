@@ -53,6 +53,8 @@ jobs:
     - name: 🔧 Install system dependencies
       run: |
         sudo apt-get update
+
+        # 安装基础依赖
         sudo apt-get install -y \
           python3-pip \
           build-essential \
@@ -65,10 +67,12 @@ jobs:
           zlib1g-dev \
           libncurses5-dev \
           libncursesw5-dev \
-          libtinfo5 \
           cmake \
           libffi-dev \
           libssl-dev
+
+        # 尝试安装 libtinfo (兼容不同Ubuntu版本)
+        sudo apt-get install -y libtinfo6 || sudo apt-get install -y libtinfo5 || echo "Warning: libtinfo not found, continuing..."
           
     - name: 🐍 Install Python dependencies
       run: |
