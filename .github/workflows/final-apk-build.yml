@@ -1,46 +1,34 @@
-name: Build Android APK with AIDL Fix
+name: Clean APK Build
 
 on:
   workflow_dispatch:
-    inputs:
-      debug:
-        description: 'Enable debug mode'
-        required: false
-        default: 'true'
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: 📥 Checkout code
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: 🐍 Set up Python
+    - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.8'
 
-    - name: ☕ Set up JDK 8
+    - name: Setup Java
       uses: actions/setup-java@v4
       with:
         java-version: '8'
         distribution: 'temurin'
 
-    - name: � Install system dependencies with AIDL support
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-
-        # 安装完整的Android开发工具链
         sudo apt-get install -y \
-          python3-pip \
-          python3-setuptools \
-          python3-distutils \
           build-essential \
           git \
           unzip \
-          wget \
-          curl \
           openjdk-8-jdk \
           autoconf \
           libtool \
@@ -51,77 +39,58 @@ jobs:
           cmake \
           libffi-dev \
           libssl-dev \
-          libc6-dev \
-          libstdc++6 \
-          libpulse-dev \
-          libegl1-mesa-dev \
-          libgles2-mesa-dev
+          python3-distutils \
+          wget \
+          curl \
+          python3-setuptools
 
-        # 安装Android SDK命令行工具
-        echo "📱 Installing Android SDK Command Line Tools..."
+    - name: Setup Android SDK
+      run: |
         mkdir -p $HOME/android-sdk/cmdline-tools
         cd $HOME/android-sdk/cmdline-tools
-
-        # 下载最新的命令行工具
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
         mv cmdline-tools latest
 
-        # 设置环境变量
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
 
-        echo "export ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "export ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
         echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
         echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
 
-        # 接受许可证并安装必要组件
-        echo "📋 Accepting Android SDK licenses..."
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" "ndk;21.4.7075529"
 
-        echo "📦 Installing Android SDK components..."
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-          "platform-tools" \
-          "platforms;android-30" \
-          "build-tools;30.0.3" \
-          "ndk;21.4.7075529"
-
-        echo "✅ Android SDK setup completed"
-        ls -la $ANDROID_HOME/
-
-    - name: 🐍 Install Python dependencies
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
         pip install buildozer==1.5.0 cython==0.29.36
 
-    - name: 📁 Create minimal test app
+    - name: Create test application
       run: |
-        echo "📱 Creating minimal Kivy test app..."
-        mkdir -p build_dir
-
-        # 创建最简单的main.py
-        cat > build_dir/main.py << 'EOF'
+        mkdir -p multimedia_app
+        cd multimedia_app
+        
+        cat > main.py << 'EOF'
 from kivy.app import App
 from kivy.uix.label import Label
 
 class TestApp(App):
     def build(self):
-        return Label(text='文旅多媒体演出控制\nAPK构建测试成功！',
-                    font_size='20sp',
-                    halign='center')
+        return Label(text='Multimedia Controller APK Build Success', font_size='20sp', halign='center')
 
 if __name__ == '__main__':
     TestApp().run()
 EOF
 
-        # 创建优化的buildozer.spec，使用正确的Android API
-        cat > build_dir/buildozer.spec << 'EOF'
+        cat > buildozer.spec << 'EOF'
 [app]
-title = 文旅多媒体演出控制
-package.name = multimedia_show_controller
+title = Multimedia Controller
+package.name = multimediacontroller
 package.domain = com.showcontrol.mobile
 source.dir = .
 source.include_exts = py
@@ -132,7 +101,6 @@ orientation = portrait
 [buildozer]
 log_level = 2
 
-# Android specific - 使用与SDK安装匹配的版本
 android.permissions = INTERNET
 android.api = 30
 android.minapi = 21
@@ -145,95 +113,78 @@ android.allow_backup = True
 android.private_storage = True
 EOF
 
-        echo "📋 Created files:"
-        ls -la build_dir/
+        echo "Application files created"
+        ls -la
 
-    - name: 🔍 Verify AIDL availability
+    - name: Verify AIDL
       run: |
-        echo "� Checking for AIDL tool..."
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export PATH=$PATH:$ANDROID_HOME/build-tools/30.0.3
 
-        # 检查AIDL工具
         which aidl || echo "AIDL not found in PATH"
         ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL not found in build-tools"
 
-        # 检查环境变量
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-        echo "PATH includes build-tools: $(echo $PATH | grep build-tools || echo 'No')"
-
-    - name: 🔨 Build APK with Buildozer
-      working-directory: build_dir
+    - name: Build APK
+      working-directory: multimedia_app
       run: |
-        echo "🚀 Starting APK build..."
+        echo "Starting APK build process..."
 
-        # 设置完整的环境变量
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
         export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
 
-        echo "📋 Environment Information:"
-        echo "Java version:"
+        echo "Environment Information:"
         java -version 2>&1 | head -3
-        echo "Python version:"
         python --version
-        echo "Buildozer version:"
         buildozer --version
         echo "AIDL location:"
         which aidl || echo "AIDL not found"
 
-        # 清理之前的构建
         rm -rf .buildozer bin
-
-        # 构建APK
-        echo "🔨 Building APK..."
         buildozer android debug
 
-    - name: 📱 List generated files
-      working-directory: build_dir
+    - name: List build results
+      working-directory: multimedia_app
       run: |
-        echo "📁 Build directory contents:"
+        echo "Build directory contents:"
         find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK files found"
 
         if [ -d "bin" ]; then
-          echo "📦 Bin directory contents:"
+          echo "Bin directory contents:"
           ls -la bin/
         else
-          echo "❌ No bin directory found"
+          echo "No bin directory found"
         fi
 
-    - name: 📤 Upload APK artifact
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: multimedia-show-controller-apk
-        path: |
-          build_dir/bin/*.apk
+        name: multimedia-controller-apk
+        path: multimedia_app/bin/*.apk
         retention-days: 30
 
-    - name: 📊 Build summary
+    - name: Build Summary
       run: |
-        echo "🎉 APK Build Summary"
-        echo "==================="
+        echo "Build Process Completed!"
+        echo "========================"
 
-        cd build_dir
+        cd multimedia_app
         APK_FILES=$(find . -name "*.apk" -type f)
 
         if [ -n "$APK_FILES" ]; then
-          echo "✅ APK build successful!"
-          echo "📱 APK files:"
+          echo "APK build successful!"
           echo "$APK_FILES" | while read apk; do
-            echo "📲 $(basename "$apk") - $(du -h "$apk" | cut -f1)"
+            echo "$(basename "$apk") - $(du -h "$apk" | cut -f1)"
           done
           echo ""
-          echo "� Download APK from 'Artifacts' section above"
-          echo "📲 Install on Android device to test"
+          echo "Download APK from Artifacts section above"
+          echo "Install on Android device to test"
         else
-          echo "❌ APK build failed!"
-          echo "📋 Check the build logs above for errors"
+          echo "APK build failed!"
+          echo "Check the build logs above for errors"
           exit 1
         fi
