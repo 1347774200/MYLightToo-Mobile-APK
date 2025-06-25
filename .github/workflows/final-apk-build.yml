@@ -25,7 +25,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential git unzip wget curl autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils
+        sudo apt-get install -y build-essential git unzip wget curl autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils ant openjdk-8-jdk-headless
 
     - name: Install Python packages
       run: |
@@ -77,6 +77,21 @@ jobs:
           echo "ERROR: AIDL not found after installation"
         fi
 
+    - name: Setup Apache Ant
+      run: |
+        # Create buildozer directory and download Ant to avoid network issues during build
+        mkdir -p $HOME/.buildozer/android/platform
+        cd $HOME/.buildozer/android/platform
+
+        # Download Apache Ant
+        echo "Downloading Apache Ant..."
+        wget -q https://archive.apache.org/dist/ant/binaries/apache-ant-1.9.4-bin.tar.gz
+        tar -xzf apache-ant-1.9.4-bin.tar.gz
+        mv apache-ant-1.9.4 apache-ant-1.9.4
+
+        echo "Apache Ant downloaded and extracted"
+        ls -la $HOME/.buildozer/android/platform/
+
     - name: Create app
       run: |
         mkdir -p app_build
@@ -114,6 +129,8 @@ jobs:
         echo "android.ndk_api = 21" >> buildozer.spec
         echo "android.accept_sdk_license = True" >> buildozer.spec
         echo "android.archs = armeabi-v7a" >> buildozer.spec
+        echo "android.skip_update = False" >> buildozer.spec
+        echo "android.ant_path = /usr/bin/ant" >> buildozer.spec
         echo "Files created successfully"
         ls -la
         echo "main.py:"
@@ -129,6 +146,12 @@ jobs:
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
+
+        # Set additional environment variables to avoid downloads
+        export ANDROIDAPI="30"
+        export NDKAPI="21"
+        export ANDROID_NDK_VERSION="21.4.7075529"
+        export ANT_HOME="/usr/share/ant"
 
         echo "Starting build process..."
         echo "Environment check:"
