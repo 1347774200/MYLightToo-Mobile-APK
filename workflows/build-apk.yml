@@ -18,7 +18,7 @@ jobs:
     - name: 🐍 Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.8'
         
     - name: ☕ Set up JDK 8
       uses: actions/setup-java@v3
@@ -77,7 +77,20 @@ jobs:
     - name: 🐍 Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install buildozer cython
+        pip install buildozer==1.4.0 cython==0.29.33
+
+    - name: 📱 Setup Android SDK
+      run: |
+        echo "🔧 Setting up Android SDK..."
+        export ANDROID_HOME=/usr/local/lib/android/sdk
+        export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+        export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
+
+        # 检查Android SDK
+        ls -la $ANDROID_HOME/ || echo "Android SDK directory not found"
+
+        # 接受许可证
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || echo "License acceptance failed"
         
     - name: 📁 Prepare project files
       run: |
@@ -124,7 +137,10 @@ jobs:
             echo "✅ Copied music directory"
           fi
 
-          if [ -f "$PROJECT_DIR/buildozer.spec" ]; then
+          if [ -f "$PROJECT_DIR/buildozer_simple.spec" ]; then
+            cp "$PROJECT_DIR/buildozer_simple.spec" build_dir/buildozer.spec
+            echo "✅ Copied buildozer_simple.spec as buildozer.spec"
+          elif [ -f "$PROJECT_DIR/buildozer.spec" ]; then
             cp "$PROJECT_DIR/buildozer.spec" build_dir/
             echo "✅ Copied buildozer.spec"
           else
@@ -152,13 +168,19 @@ jobs:
         python --version
         echo "Buildozer version:"
         buildozer --version
-        
+
         # 设置环境变量
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         export PATH=$JAVA_HOME/bin:$PATH
-        
-        # 构建APK
-        buildozer android debug
+        export ANDROID_HOME=/usr/local/lib/android/sdk
+        export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+        export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk-bundle
+
+        # 清理之前的构建
+        rm -rf .buildozer
+
+        # 构建APK（增加详细日志）
+        buildozer android debug --verbose
         
     - name: 📱 List generated files
       working-directory: build_dir
