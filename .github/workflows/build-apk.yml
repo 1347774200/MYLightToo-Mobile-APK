@@ -84,6 +84,12 @@ jobs:
         echo "📋 Repository contents:"
         ls -la
 
+        echo "📋 查找所有可能的项目目录:"
+        find . -maxdepth 2 -type d -name "*GMA*" -o -name "*mobile*" -o -name "*app*" | head -10
+
+        echo "📋 查找包含buildozer.spec的目录:"
+        find . -name "buildozer.spec" -type f
+
         # 项目文件在 "GMA2_UDP_Tool - 副本" 目录中
         PROJECT_DIR="GMA2_UDP_Tool - 副本"
 
