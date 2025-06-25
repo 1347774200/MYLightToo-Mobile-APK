@@ -35,80 +35,67 @@ jobs:
     - name: Setup Android SDK with AIDL
       run: |
         # Create Android SDK directory
-        mkdir -p $HOME/android-sdk/cmdline-tools
-        cd $HOME/android-sdk/cmdline-tools
-
-        # Download and install command line tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        mv cmdline-tools latest
-
-        # Set environment variables
+        mkdir -p $HOME/android-sdk
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
 
         # Add to GitHub environment
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
 
-        # Accept licenses
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        # Download and manually install build-tools with AIDL
+        echo "Downloading Android Build Tools directly..."
+        cd $HOME/android-sdk
+        mkdir -p build-tools/30.0.3
 
-        # Install SDK components including build-tools that contain AIDL
-        echo "Installing Android SDK components..."
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;21.4.7075529"
+        # Download build-tools zip directly
+        wget -q https://dl.google.com/android/repository/build-tools_r30.0.3-linux.zip
+        unzip -q build-tools_r30.0.3-linux.zip -d build-tools/30.0.3/
 
-        # Wait for installation to complete
-        sleep 5
-
-        # Verify AIDL installation
-        echo "Verifying AIDL installation..."
-        echo "Build tools directory:"
-        ls -la $ANDROID_HOME/build-tools/ || echo "Build tools directory not found"
-        echo "Build tools 30.0.3 contents:"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build tools 30.0.3 not found"
-
-        # Check for AIDL file
-        if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then
-          chmod +x $ANDROID_HOME/build-tools/30.0.3/aidl
-          echo "AIDL found and made executable"
-
-          # Create symlink in a directory that's in PATH
-          sudo ln -sf $ANDROID_HOME/build-tools/30.0.3/aidl /usr/local/bin/aidl
-          echo "AIDL symlink created in /usr/local/bin/"
-        else
-          echo "ERROR: AIDL not found after installation"
-          echo "Trying alternative build-tools versions..."
-          find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "No AIDL found anywhere"
+        # Move files to correct location
+        if [ -d "build-tools/30.0.3/android-11" ]; then
+          mv build-tools/30.0.3/android-11/* build-tools/30.0.3/
+          rm -rf build-tools/30.0.3/android-11
         fi
 
-        # Final AIDL verification
-        echo "Final AIDL check:"
-        which aidl || echo "AIDL not in PATH"
-        aidl --help 2>/dev/null || echo "AIDL not executable"
+        # Make all tools executable
+        chmod +x build-tools/30.0.3/*
 
-    - name: Setup Apache Ant
+        # Verify AIDL is there
+        echo "Checking for AIDL..."
+        ls -la build-tools/30.0.3/aidl || echo "AIDL not found"
+
+        # Create symlink for AIDL
+        if [ -f "build-tools/30.0.3/aidl" ]; then
+          sudo ln -sf $ANDROID_HOME/build-tools/30.0.3/aidl /usr/local/bin/aidl
+          echo "AIDL symlink created"
+        fi
+
+        # Download platform-tools
+        echo "Downloading platform-tools..."
+        wget -q https://dl.google.com/android/repository/platform-tools-latest-linux.zip
+        unzip -q platform-tools-latest-linux.zip
+        chmod +x platform-tools/*
+
+        # Add to PATH
+        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+
+        # Final verification
+        echo "AIDL verification:"
+        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL file not found"
+        which aidl || echo "AIDL not in PATH yet"
+
+    - name: Verify tools
       run: |
-        # Create buildozer directory and download Ant to avoid network issues during build
-        mkdir -p $HOME/.buildozer/android/platform
-        cd $HOME/.buildozer/android/platform
-
-        # Download Apache Ant
-        echo "Downloading Apache Ant..."
-        wget -q https://archive.apache.org/dist/ant/binaries/apache-ant-1.9.4-bin.tar.gz
-        tar -xzf apache-ant-1.9.4-bin.tar.gz
-
-        # Verify extraction
-        echo "Apache Ant downloaded and extracted"
-        ls -la $HOME/.buildozer/android/platform/
-        ls -la $HOME/.buildozer/android/platform/apache-ant-1.9.4/ || echo "Ant directory not found"
+        echo "Verifying installed tools..."
+        echo "Java version:"
+        java -version
+        echo "Ant version:"
+        ant -version
+        echo "AIDL check:"
+        which aidl || echo "AIDL not found"
+        aidl --help 2>/dev/null || echo "AIDL not working"
 
     - name: Create app
       run: |
