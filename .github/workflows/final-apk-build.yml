@@ -68,18 +68,18 @@ jobs:
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
         echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
 
-        # Download NDK for P4A
-        echo "Downloading Android NDK..."
+        # Download NDK 25b for P4A
+        echo "Downloading Android NDK 25b..."
         cd $HOME/android-sdk
-        wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
-        unzip -q android-ndk-r21e-linux-x86_64.zip
+        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+        unzip -q android-ndk-r25b-linux.zip
 
         # Create ndk directory and move NDK
         mkdir -p ndk
-        mv android-ndk-r21e ndk/21.4.7075529
+        mv android-ndk-r25b ndk/25.2.9519653
 
         # Set NDK environment
-        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
 
         # Verify SDK structure
         echo "SDK verification:"
@@ -156,7 +156,7 @@ jobs:
         # Set environment variables for P4A
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
+        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
 
         # Set P4A specific environment variables
