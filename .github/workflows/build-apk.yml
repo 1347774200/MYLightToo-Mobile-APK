@@ -90,8 +90,8 @@ jobs:
         echo "📋 查找包含buildozer.spec的目录:"
         find . -name "buildozer.spec" -type f
 
-        # 项目文件在 ".github/GMA2_UDP_Tool - 副本" 目录中
-        PROJECT_DIR=".github/GMA2_UDP_Tool - 副本"
+        # 项目文件在 "GMA2_UDP_Tool - 副本" 目录中
+        PROJECT_DIR="GMA2_UDP_Tool - 副本"
 
         if [ -d "$PROJECT_DIR" ]; then
           echo "✅ Found project directory: $PROJECT_DIR"
@@ -110,12 +110,18 @@ jobs:
             exit 1
           fi
 
-          if [ -f "$PROJECT_DIR/controller_app.py" ]; then
-            cp "$PROJECT_DIR/controller_app.py" build_dir/
-            echo "✅ Copied controller_app.py"
-          else
-            echo "❌ controller_app.py not found in $PROJECT_DIR"
-            exit 1
+          # 复制所有Python文件
+          cp "$PROJECT_DIR"/*.py build_dir/ 2>/dev/null || echo "⚠️ Some Python files may not exist"
+
+          # 复制其他必要文件
+          if [ -d "$PROJECT_DIR/Video" ]; then
+            cp -r "$PROJECT_DIR/Video" build_dir/
+            echo "✅ Copied Video directory"
+          fi
+
+          if [ -d "$PROJECT_DIR/music" ]; then
+            cp -r "$PROJECT_DIR/music" build_dir/
+            echo "✅ Copied music directory"
           fi
 
           if [ -f "$PROJECT_DIR/buildozer.spec" ]; then
