@@ -27,23 +27,23 @@ jobs:
         distribution: 'temurin'
         
     - name: 📦 Cache pip packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-          
+
     - name: 📦 Cache Buildozer global directory
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.buildozer
         key: ${{ runner.os }}-buildozer-${{ hashFiles('**/buildozer.spec') }}
         restore-keys: |
           ${{ runner.os }}-buildozer-
-          
+
     - name: 📦 Cache Buildozer directory
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: .buildozer
         key: ${{ runner.os }}-buildozer-local-${{ hashFiles('**/buildozer.spec') }}
@@ -152,7 +152,7 @@ jobs:
         ls -la bin/ || echo "No bin directory found"
         
     - name: 📤 Upload APK artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: multimedia-show-controller-apk
         path: build_dir/bin/*.apk
@@ -172,4 +172,3 @@ jobs:
           echo "❌ APK build failed!"
           exit 1
         fi
-
