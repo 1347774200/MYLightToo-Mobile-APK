@@ -32,25 +32,50 @@ jobs:
         python -m pip install --upgrade pip setuptools wheel
         pip install buildozer==1.5.0 cython==0.29.36
 
-    - name: Setup Android SDK
+    - name: Setup Android SDK with AIDL
       run: |
+        # Create Android SDK directory
         mkdir -p $HOME/android-sdk/cmdline-tools
         cd $HOME/android-sdk/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-        unzip -q commandlinetools-linux-8512546_latest.zip
+
+        # Download and install command line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
         mv cmdline-tools latest
+
+        # Set environment variables
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+
+        # Add to GitHub environment
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
         echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/29.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+
+        # Accept licenses
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager platform-tools
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager platforms\;android-29
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager build-tools\;29.0.3
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager ndk\;21.4.7075529
+
+        # Install SDK components including build-tools that contain AIDL
+        echo "Installing Android SDK components..."
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;21.4.7075529"
+
+        # Verify AIDL installation
+        echo "Verifying AIDL installation..."
+        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL not found in build-tools"
+
+        # Make sure AIDL is executable and in PATH
+        if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then
+          chmod +x $ANDROID_HOME/build-tools/30.0.3/aidl
+          echo "AIDL found and made executable"
+        else
+          echo "ERROR: AIDL not found after installation"
+        fi
 
     - name: Create app
       run: |
@@ -82,9 +107,9 @@ jobs:
         echo "log_level = 2" >> buildozer.spec
         echo "" >> buildozer.spec
         echo "android.permissions = INTERNET" >> buildozer.spec
-        echo "android.api = 29" >> buildozer.spec
+        echo "android.api = 30" >> buildozer.spec
         echo "android.minapi = 21" >> buildozer.spec
-        echo "android.sdk = 29" >> buildozer.spec
+        echo "android.sdk = 30" >> buildozer.spec
         echo "android.ndk = 21.4.7075529" >> buildozer.spec
         echo "android.ndk_api = 21" >> buildozer.spec
         echo "android.accept_sdk_license = True" >> buildozer.spec
@@ -99,20 +124,36 @@ jobs:
     - name: Build APK
       working-directory: app_build
       run: |
+        # Set environment variables with correct build-tools version
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/29.0.3:$PATH
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
+
         echo "Starting build process..."
+        echo "Environment check:"
         echo "Java version:"
         java -version
         echo "Python version:"
         python --version
         echo "Buildozer version:"
         buildozer --version
-        echo "Android SDK:"
+
+        echo "Android SDK structure:"
         ls -la $ANDROID_HOME/
+        echo "Build tools:"
+        ls -la $ANDROID_HOME/build-tools/
+
+        echo "AIDL verification:"
+        which aidl || echo "AIDL not in PATH"
+        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL file not found"
+
+        echo "PATH contains:"
+        echo $PATH | tr ':' '\n' | grep android || echo "No android paths found"
+
+        # Clean and build
         rm -rf .buildozer bin
+        echo "Starting buildozer..."
         buildozer android debug
 
     - name: Check results
