@@ -56,41 +56,39 @@ jobs:
       run: |
         mkdir -p app_build
         cd app_build
-        python -c "
-with open('main.py', 'w') as f:
-    f.write('from kivy.app import App\n')
-    f.write('from kivy.uix.label import Label\n')
-    f.write('\n')
-    f.write('class TestApp(App):\n')
-    f.write('    def build(self):\n')
-    f.write('        return Label(text=\"APK Build Test\", font_size=\"20sp\")\n')
-    f.write('\n')
-    f.write('TestApp().run()\n')
-"
-        python -c "
-with open('buildozer.spec', 'w') as f:
-    f.write('[app]\n')
-    f.write('title = Test App\n')
-    f.write('package.name = testapp\n')
-    f.write('package.domain = com.test.app\n')
-    f.write('source.dir = .\n')
-    f.write('source.include_exts = py\n')
-    f.write('version = 1.0\n')
-    f.write('requirements = python3,kivy\n')
-    f.write('orientation = portrait\n')
-    f.write('\n')
-    f.write('[buildozer]\n')
-    f.write('log_level = 2\n')
-    f.write('\n')
-    f.write('android.permissions = INTERNET\n')
-    f.write('android.api = 29\n')
-    f.write('android.minapi = 21\n')
-    f.write('android.sdk = 29\n')
-    f.write('android.ndk = 21.4.7075529\n')
-    f.write('android.ndk_api = 21\n')
-    f.write('android.accept_sdk_license = True\n')
-    f.write('android.archs = armeabi-v7a\n')
-"
+
+        # Create main.py
+        echo "from kivy.app import App" > main.py
+        echo "from kivy.uix.label import Label" >> main.py
+        echo "" >> main.py
+        echo "class TestApp(App):" >> main.py
+        echo "    def build(self):" >> main.py
+        echo "        return Label(text='APK Build Test', font_size='20sp')" >> main.py
+        echo "" >> main.py
+        echo "TestApp().run()" >> main.py
+
+        # Create buildozer.spec
+        echo "[app]" > buildozer.spec
+        echo "title = Test App" >> buildozer.spec
+        echo "package.name = testapp" >> buildozer.spec
+        echo "package.domain = com.test.app" >> buildozer.spec
+        echo "source.dir = ." >> buildozer.spec
+        echo "source.include_exts = py" >> buildozer.spec
+        echo "version = 1.0" >> buildozer.spec
+        echo "requirements = python3,kivy" >> buildozer.spec
+        echo "orientation = portrait" >> buildozer.spec
+        echo "" >> buildozer.spec
+        echo "[buildozer]" >> buildozer.spec
+        echo "log_level = 2" >> buildozer.spec
+        echo "" >> buildozer.spec
+        echo "android.permissions = INTERNET" >> buildozer.spec
+        echo "android.api = 29" >> buildozer.spec
+        echo "android.minapi = 21" >> buildozer.spec
+        echo "android.sdk = 29" >> buildozer.spec
+        echo "android.ndk = 21.4.7075529" >> buildozer.spec
+        echo "android.ndk_api = 21" >> buildozer.spec
+        echo "android.accept_sdk_license = True" >> buildozer.spec
+        echo "android.archs = armeabi-v7a" >> buildozer.spec
         echo "Files created successfully"
         ls -la
         echo "main.py:"
