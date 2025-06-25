@@ -1,4 +1,4 @@
-name: APK Build - Ultra Fast
+name: Flutter APK Build - Most Stable
 
 on:
   workflow_dispatch:
@@ -6,95 +6,214 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
-    - name: Checkout
+    - name: Checkout repository
       uses: actions/checkout@v4
-
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.8'
 
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: '8'
         distribution: 'temurin'
+        java-version: '11'
 
-    - name: Create minimal fake Android SDK
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.9'
+        channel: 'stable'
+        cache: true
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 33
+        build-tools: 33.0.2
+        ndk: 25.2.9519653
+
+    - name: Create Flutter app
       run: |
-        # Create minimal fake Android SDK structure
-        mkdir -p $HOME/android-sdk/{platforms/android-27,build-tools/27.0.3,platform-tools,tools/bin,cmdline-tools/latest/bin}
+        # Create a new Flutter app
+        flutter create my_light_app --org com.mylighttoo.app
+        cd my_light_app
+        
+        # Customize the app
+        cat > lib/main.dart << 'EOF'
+        import 'package:flutter/material.dart';
 
-        # Create fake tools
-        echo '#!/bin/bash' > $HOME/android-sdk/tools/bin/android
-        echo 'echo "id: 1 or \"android-27\""' >> $HOME/android-sdk/tools/bin/android
-        echo 'echo "Name: Android 8.1 (API level 27)"' >> $HOME/android-sdk/tools/bin/android
-        chmod +x $HOME/android-sdk/tools/bin/android
+        void main() {
+          runApp(MyLightApp());
+        }
 
-        echo '#!/bin/bash' > $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-        echo 'echo "SDK Manager"' >> $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-        chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
+        class MyLightApp extends StatelessWidget {
+          @override
+          Widget build(BuildContext context) {
+            return MaterialApp(
+              title: 'My Light Too',
+              theme: ThemeData(
+                primarySwatch: Colors.blue,
+                visualDensity: VisualDensity.adaptivePlatformDensity,
+              ),
+              home: MyHomePage(title: 'My Light Too - Mobile'),
+            );
+          }
+        }
 
-        echo '#!/bin/bash' > $HOME/android-sdk/build-tools/27.0.3/aidl
-        echo 'echo "AIDL"' >> $HOME/android-sdk/build-tools/27.0.3/aidl
-        chmod +x $HOME/android-sdk/build-tools/27.0.3/aidl
+        class MyHomePage extends StatefulWidget {
+          MyHomePage({Key? key, required this.title}) : super(key: key);
+          final String title;
 
-        echo '#!/bin/bash' > $HOME/android-sdk/platform-tools/adb
-        echo 'echo "ADB"' >> $HOME/android-sdk/platform-tools/adb
-        chmod +x $HOME/android-sdk/platform-tools/adb
+          @override
+          _MyHomePageState createState() => _MyHomePageState();
+        }
 
-        # Set environment
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/tools/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/27.0.3" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+        class _MyHomePageState extends State<MyHomePage> {
+          int _counter = 0;
 
-    - name: Install minimal dependencies
+          void _incrementCounter() {
+            setState(() {
+              _counter++;
+            });
+          }
+
+          @override
+          Widget build(BuildContext context) {
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(widget.title),
+                backgroundColor: Colors.blue[800],
+              ),
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(
+                      Icons.lightbulb,
+                      size: 100,
+                      color: Colors.amber,
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Welcome to My Light Too Mobile!',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Professional Lighting Control',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                    SizedBox(height: 40),
+                    Text(
+                      'Button pressed:',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    Text(
+                      '$_counter',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: _incrementCounter,
+                      icon: Icon(Icons.touch_app),
+                      label: Text('Test Button'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[800],
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              floatingActionButton: FloatingActionButton(
+                onPressed: _incrementCounter,
+                tooltip: 'Increment',
+                backgroundColor: Colors.amber,
+                child: Icon(Icons.add, color: Colors.black),
+              ),
+            );
+          }
+        }
+        EOF
+
+    - name: Configure Android build
       run: |
-        python -m pip install --upgrade pip
-        pip install python-for-android==2020.3.30 cython==0.29.21
-        sudo apt-get update
-        sudo apt-get install -y build-essential git python3-dev
+        cd my_light_app
+        
+        # Update app name and package
+        sed -i 's/android:label="my_light_app"/android:label="My Light Too"/' android/app/src/main/AndroidManifest.xml
+        
+        # Update build.gradle for release
+        cat >> android/app/build.gradle << 'EOF'
 
-    - name: Create and build app
+        android {
+            signingConfigs {
+                release {
+                    // You can add signing config here for production
+                }
+            }
+            buildTypes {
+                release {
+                    signingConfig signingConfigs.debug // Use debug signing for now
+                }
+            }
+        }
+        EOF
+
+    - name: Get Flutter dependencies
       run: |
-        mkdir -p app_build && cd app_build
-        echo 'print("Hello Android!")' > main.py
+        cd my_light_app
+        flutter pub get
 
-        # Quick environment check
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        which android && android list target || echo "android test"
-
-        # Set environment and build
-        export ANDROIDAPI="27"
-        export NDKAPI="21"
-
-        # Try to build APK
-        timeout 15m p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a || echo "Build completed or timed out"
-
-    - name: Check results
+    - name: Build APK
       run: |
-        cd app_build
-        echo "Checking for APK files:"
-        find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK found"
+        cd my_light_app
+        echo "Building Flutter APK..."
+        flutter build apk --release
+        
+        # Also build app bundle for Play Store
+        flutter build appbundle --release
 
-        if find . -name "*.apk" -type f | grep -q .; then
+    - name: Check build results
+      run: |
+        cd my_light_app
+        echo "Checking build results..."
+        
+        if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
           echo "✅ APK build successful!"
+          ls -lh build/app/outputs/flutter-apk/app-release.apk
         else
-          echo "❌ No APK found, but that's expected for this test"
-          echo "Directory contents:"
-          ls -la
+          echo "❌ APK build failed"
+        fi
+        
+        if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
+          echo "✅ App Bundle build successful!"
+          ls -lh build/app/outputs/bundle/release/app-release.aab
+        else
+          echo "❌ App Bundle build failed"
         fi
 
-    - name: Upload any APK
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: test-apk
-        path: app_build/**/*.apk
-        retention-days: 7
+        name: flutter-apk
+        path: |
+          my_light_app/build/app/outputs/flutter-apk/app-release.apk
+          my_light_app/build/app/outputs/bundle/release/app-release.aab
+        retention-days: 30
+
+    - name: Build Summary
+      run: |
+        cd my_light_app
+        echo "🎉 Flutter APK Build Complete!"
+        echo ""
+        echo "📱 Generated files:"
+        find build/app/outputs -name "*.apk" -o -name "*.aab" | while read file; do
+          echo "  - $(basename $file) ($(du -h "$file" | cut -f1))"
+        done
+        echo ""
+        echo "📥 Download from the Artifacts section above"
+        echo "🚀 Ready to install on Android devices!"
