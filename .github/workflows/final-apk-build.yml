@@ -65,17 +65,34 @@ jobs:
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;21.4.7075529"
 
+        # Wait for installation to complete
+        sleep 5
+
         # Verify AIDL installation
         echo "Verifying AIDL installation..."
-        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL not found in build-tools"
+        echo "Build tools directory:"
+        ls -la $ANDROID_HOME/build-tools/ || echo "Build tools directory not found"
+        echo "Build tools 30.0.3 contents:"
+        ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build tools 30.0.3 not found"
 
-        # Make sure AIDL is executable and in PATH
+        # Check for AIDL file
         if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then
           chmod +x $ANDROID_HOME/build-tools/30.0.3/aidl
           echo "AIDL found and made executable"
+
+          # Create symlink in a directory that's in PATH
+          sudo ln -sf $ANDROID_HOME/build-tools/30.0.3/aidl /usr/local/bin/aidl
+          echo "AIDL symlink created in /usr/local/bin/"
         else
           echo "ERROR: AIDL not found after installation"
+          echo "Trying alternative build-tools versions..."
+          find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "No AIDL found anywhere"
         fi
+
+        # Final AIDL verification
+        echo "Final AIDL check:"
+        which aidl || echo "AIDL not in PATH"
+        aidl --help 2>/dev/null || echo "AIDL not executable"
 
     - name: Setup Apache Ant
       run: |
@@ -172,8 +189,25 @@ jobs:
         which aidl || echo "AIDL not in PATH"
         ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL file not found"
 
+        # Try to find AIDL anywhere in Android SDK
+        echo "Searching for AIDL in Android SDK:"
+        find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "No AIDL found in Android SDK"
+
+        # If AIDL not in PATH, try to add it manually
+        if ! which aidl >/dev/null 2>&1; then
+          echo "AIDL not in PATH, trying to fix..."
+          if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then
+            export PATH=$ANDROID_HOME/build-tools/30.0.3:$PATH
+            echo "Added build-tools to PATH"
+          fi
+        fi
+
         echo "PATH contains:"
         echo $PATH | tr ':' '\n' | grep android || echo "No android paths found"
+
+        # Final AIDL test
+        echo "Final AIDL test:"
+        aidl --help 2>/dev/null && echo "AIDL is working" || echo "AIDL still not working"
 
         # Clean and build
         rm -rf .buildozer bin
