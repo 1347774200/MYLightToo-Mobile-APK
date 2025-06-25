@@ -212,11 +212,11 @@ jobs:
         # Use the simple main file
         cp simple_main.py main.py
 
-        # Try building with empty bootstrap first (simplest)
-        echo "Building APK with empty bootstrap..."
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=empty --requirements=python3 --arch=armeabi-v7a --permission INTERNET --ignore-setup-py || {
-          echo "Empty bootstrap failed, trying service_only..."
-          p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a --permission INTERNET --ignore-setup-py
+        # Try building with service_only bootstrap (add all required parameters)
+        echo "Building APK with service_only bootstrap..."
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a --permission INTERNET --orientation=portrait --debug || {
+          echo "Service_only failed, trying with minimal webview bootstrap..."
+          p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=webview --requirements=python3 --arch=armeabi-v7a --permission INTERNET --orientation=portrait --debug
         }
 
     - name: Check results
