@@ -5,11 +5,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -17,7 +17,7 @@ jobs:
         python-version: '3.9'
 
     - name: Setup Java
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '8'
         distribution: 'temurin'
@@ -44,7 +44,21 @@ jobs:
           python3-distutils \
           ant \
           openjdk-8-jdk \
-          aidl
+          android-sdk-platform-tools-common
+
+    - name: Install AIDL manually if needed
+      run: |
+        # Check if aidl is available
+        if ! which aidl; then
+          echo "AIDL not found, installing manually..."
+          # Try different package names for AIDL
+          sudo apt-get install -y aidl || \
+          sudo apt-get install -y android-tools-aidl || \
+          sudo apt-get install -y android-sdk-build-tools || \
+          echo "Could not install AIDL via apt, will handle in buildozer"
+        else
+          echo "AIDL found: $(which aidl)"
+        fi
 
     - name: Install Python packages
       run: |
