@@ -30,7 +30,7 @@ jobs:
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install python-for-android==2023.6.11 cython==0.29.36
+        pip install python-for-android==2023.9.16 cython==0.29.36
 
     - name: Setup Android SDK
       run: |
