@@ -1,4 +1,4 @@
-name: Clean APK Build
+name: Clean Build
 
 on:
   workflow_dispatch:
@@ -22,27 +22,10 @@ jobs:
         java-version: '8'
         distribution: 'temurin'
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          git \
-          unzip \
-          openjdk-8-jdk \
-          autoconf \
-          libtool \
-          pkg-config \
-          zlib1g-dev \
-          libncurses5-dev \
-          libncursesw5-dev \
-          cmake \
-          libffi-dev \
-          libssl-dev \
-          python3-distutils \
-          wget \
-          curl \
-          python3-setuptools
+        sudo apt-get install -y build-essential git unzip wget curl openjdk-8-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils
 
     - name: Setup Android SDK
       run: |
@@ -51,140 +34,110 @@ jobs:
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
         mv cmdline-tools latest
-
+        
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-
+        
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
         echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
         echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
-
+        
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" "ndk;21.4.7075529"
 
-    - name: Install Python dependencies
+    - name: Install Python packages
       run: |
         python -m pip install --upgrade pip setuptools wheel
         pip install buildozer==1.5.0 cython==0.29.36
 
-    - name: Create test application
+    - name: Create app files
       run: |
-        mkdir -p multimedia_app
-        cd multimedia_app
+        mkdir -p build_dir
+        cd build_dir
         
-        cat > main.py << 'EOF'
-from kivy.app import App
-from kivy.uix.label import Label
-
-class TestApp(App):
-    def build(self):
-        return Label(text='Multimedia Controller APK Build Success', font_size='20sp', halign='center')
-
-if __name__ == '__main__':
-    TestApp().run()
-EOF
-
-        cat > buildozer.spec << 'EOF'
-[app]
-title = Multimedia Controller
-package.name = multimediacontroller
-package.domain = com.showcontrol.mobile
-source.dir = .
-source.include_exts = py
-version = 1.0.0
-requirements = python3,kivy
-orientation = portrait
-
-[buildozer]
-log_level = 2
-
-android.permissions = INTERNET
-android.api = 30
-android.minapi = 21
-android.sdk = 30
-android.ndk = 21.4.7075529
-android.ndk_api = 21
-android.accept_sdk_license = True
-android.archs = armeabi-v7a
-android.allow_backup = True
-android.private_storage = True
-EOF
-
-        echo "Application files created"
-        ls -la
+        echo 'from kivy.app import App' > main.py
+        echo 'from kivy.uix.label import Label' >> main.py
+        echo '' >> main.py
+        echo 'class TestApp(App):' >> main.py
+        echo '    def build(self):' >> main.py
+        echo '        return Label(text="APK Build Success", font_size="20sp")' >> main.py
+        echo '' >> main.py
+        echo 'if __name__ == "__main__":' >> main.py
+        echo '    TestApp().run()' >> main.py
+        
+        echo '[app]' > buildozer.spec
+        echo 'title = Test App' >> buildozer.spec
+        echo 'package.name = testapp' >> buildozer.spec
+        echo 'package.domain = com.test.app' >> buildozer.spec
+        echo 'source.dir = .' >> buildozer.spec
+        echo 'source.include_exts = py' >> buildozer.spec
+        echo 'version = 1.0' >> buildozer.spec
+        echo 'requirements = python3,kivy' >> buildozer.spec
+        echo 'orientation = portrait' >> buildozer.spec
+        echo '' >> buildozer.spec
+        echo '[buildozer]' >> buildozer.spec
+        echo 'log_level = 2' >> buildozer.spec
+        echo '' >> buildozer.spec
+        echo 'android.permissions = INTERNET' >> buildozer.spec
+        echo 'android.api = 30' >> buildozer.spec
+        echo 'android.minapi = 21' >> buildozer.spec
+        echo 'android.sdk = 30' >> buildozer.spec
+        echo 'android.ndk = 21.4.7075529' >> buildozer.spec
+        echo 'android.ndk_api = 21' >> buildozer.spec
+        echo 'android.accept_sdk_license = True' >> buildozer.spec
+        echo 'android.archs = armeabi-v7a' >> buildozer.spec
 
     - name: Verify AIDL
       run: |
         export ANDROID_HOME=$HOME/android-sdk
-        export ANDROID_SDK_ROOT=$HOME/android-sdk
         export PATH=$PATH:$ANDROID_HOME/build-tools/30.0.3
-
-        which aidl || echo "AIDL not found in PATH"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL not found in build-tools"
+        which aidl || echo "AIDL not found"
+        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL file not found"
 
     - name: Build APK
-      working-directory: multimedia_app
+      working-directory: build_dir
       run: |
-        echo "Starting APK build process..."
-
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
         export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
-
-        echo "Environment Information:"
-        java -version 2>&1 | head -3
+        
+        echo "Environment check:"
+        java -version
         python --version
         buildozer --version
-        echo "AIDL location:"
-        which aidl || echo "AIDL not found"
-
+        which aidl || echo "AIDL not in PATH"
+        
         rm -rf .buildozer bin
         buildozer android debug
 
-    - name: List build results
-      working-directory: multimedia_app
+    - name: Check results
+      working-directory: build_dir
       run: |
-        echo "Build directory contents:"
-        find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK files found"
-
+        find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK found"
         if [ -d "bin" ]; then
-          echo "Bin directory contents:"
           ls -la bin/
-        else
-          echo "No bin directory found"
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: multimedia-controller-apk
-        path: multimedia_app/bin/*.apk
+        name: test-apk
+        path: build_dir/bin/*.apk
         retention-days: 30
 
-    - name: Build Summary
+    - name: Summary
       run: |
-        echo "Build Process Completed!"
-        echo "========================"
-
-        cd multimedia_app
-        APK_FILES=$(find . -name "*.apk" -type f)
-
-        if [ -n "$APK_FILES" ]; then
-          echo "APK build successful!"
-          echo "$APK_FILES" | while read apk; do
-            echo "$(basename "$apk") - $(du -h "$apk" | cut -f1)"
-          done
-          echo ""
-          echo "Download APK from Artifacts section above"
-          echo "Install on Android device to test"
+        cd build_dir
+        if find . -name "*.apk" -type f | grep -q .; then
+          echo "Build successful!"
+          find . -name "*.apk" -type f -exec basename {} \;
         else
-          echo "APK build failed!"
-          echo "Check the build logs above for errors"
+          echo "Build failed!"
           exit 1
         fi
