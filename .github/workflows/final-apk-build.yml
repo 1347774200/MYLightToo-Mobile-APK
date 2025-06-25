@@ -1,86 +1,92 @@
-name: Ultra Simple APK Build
+name: Working APK Build
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.8'
+        python-version: '3.9'
 
     - name: Setup Java
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v3
       with:
-        java-version: '11'
+        java-version: '8'
         distribution: 'temurin'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential git unzip wget curl autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils ant
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          unzip \
+          wget \
+          curl \
+          autoconf \
+          libtool \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          cmake \
+          libffi-dev \
+          libssl-dev \
+          python3-setuptools \
+          python3-distutils \
+          ant \
+          openjdk-8-jdk \
+          aidl
 
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install buildozer==1.5.0 cython==0.29.36
+        pip install buildozer==1.4.0 cython==0.29.33
 
-    - name: Setup Android SDK
+    - name: Setup Android SDK (Simplified)
       run: |
-        # Create Android SDK directory
-        mkdir -p $HOME/android-sdk
-        export ANDROID_HOME=$HOME/android-sdk
-        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        # Use pre-installed Android SDK from GitHub Actions
+        export ANDROID_HOME=/usr/local/lib/android/sdk
+        export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+        export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk-bundle
 
         # Add to GitHub environment
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk-bundle" >> $GITHUB_ENV
 
-        # Download and install command line tools
-        cd $HOME/android-sdk
-        mkdir -p cmdline-tools
-        cd cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        mv cmdline-tools latest
+        # Add tools to PATH
+        echo "/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_PATH
+        echo "/usr/local/lib/android/sdk/build-tools/30.0.3" >> $GITHUB_PATH
 
-        # Add cmdline-tools to PATH
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin
+        # Verify installation
+        ls -la /usr/local/lib/android/sdk/ || echo "SDK not found, will install manually"
 
-        # Accept licenses
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        # Install SDK if not present
+        if [ ! -d "/usr/local/lib/android/sdk" ]; then
+          echo "Installing Android SDK manually..."
+          sudo mkdir -p /usr/local/lib/android/sdk
+          cd /tmp
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          sudo mv cmdline-tools /usr/local/lib/android/sdk/
+          sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools/latest
+          sudo mv /usr/local/lib/android/sdk/cmdline-tools/* /usr/local/lib/android/sdk/cmdline-tools/latest/ 2>/dev/null || true
 
-        # Install required SDK components including API 33
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
-
-        # Add platform-tools to PATH
-        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/33.0.2" >> $GITHUB_PATH
-
-        # Download NDK 25b for better compatibility
-        echo "Downloading Android NDK 25b..."
-        cd $HOME/android-sdk
-        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-        unzip -q android-ndk-r25b-linux.zip
-
-        # Create ndk directory and move NDK
-        mkdir -p ndk
-        mv android-ndk-r25b ndk/25.2.9519653
-
-        # Set NDK environment
-        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+          # Accept licenses and install components
+          yes | sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+          sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-28"
+          sudo /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3"
+        fi
 
     - name: Create simple app
       run: |
@@ -88,57 +94,55 @@ jobs:
         cd app_build
 
         # Create extremely simple main.py
-        echo 'print("Hello from Python on Android!")' > main.py
-        echo 'import time' >> main.py
-        echo 'time.sleep(1)' >> main.py
-        echo 'print("App completed successfully!")' >> main.py
+        cat > main.py << 'EOF'
+        print("Hello from Python on Android!")
+        import time
+        time.sleep(1)
+        print("App completed successfully!")
+        EOF
 
-        # Create buildozer.spec
-        echo '[app]' > buildozer.spec
-        echo 'title = TestApp' >> buildozer.spec
-        echo 'package.name = testapp' >> buildozer.spec
-        echo 'package.domain = com.test.app' >> buildozer.spec
-        echo 'source.dir = .' >> buildozer.spec
-        echo 'source.include_exts = py' >> buildozer.spec
-        echo 'version = 1.0' >> buildozer.spec
-        echo 'requirements = python3' >> buildozer.spec
-        echo 'orientation = portrait' >> buildozer.spec
-        echo '' >> buildozer.spec
-        echo '[buildozer]' >> buildozer.spec
-        echo 'log_level = 2' >> buildozer.spec
-        echo '' >> buildozer.spec
-        echo '[app:android]' >> buildozer.spec
-        echo 'android.permissions = INTERNET' >> buildozer.spec
-        echo 'android.api = 33' >> buildozer.spec
-        echo 'android.minapi = 21' >> buildozer.spec
-        echo 'android.ndk = 25b' >> buildozer.spec
-        echo 'android.ndk_api = 21' >> buildozer.spec
-        echo 'android.accept_sdk_license = True' >> buildozer.spec
-        echo 'android.archs = armeabi-v7a' >> buildozer.spec
+        # Create minimal buildozer.spec
+        cat > buildozer.spec << 'EOF'
+        [app]
+        title = TestApp
+        package.name = testapp
+        package.domain = com.test.app
+        source.dir = .
+        source.include_exts = py
+        version = 1.0
+        requirements = python3
+        orientation = portrait
+
+        [buildozer]
+        log_level = 2
+
+        [app:android]
+        android.permissions = INTERNET
+        android.api = 28
+        android.minapi = 21
+        android.ndk = 21b
+        android.ndk_api = 21
+        android.accept_sdk_license = True
+        android.archs = armeabi-v7a
+        android.skip_update = False
+        EOF
 
         echo "Created files:"
         ls -la
         echo "main.py:"
         cat main.py
-        echo "buildozer.spec:"
-        cat buildozer.spec
 
     - name: Build APK with Buildozer
       working-directory: app_build
       run: |
-        # Set environment variables
-        export ANDROID_HOME=$HOME/android-sdk
-        export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$PATH
-
         echo "Building APK with Buildozer..."
         echo "Environment check:"
         java -version
         python --version
         buildozer --version
+        which aidl || echo "aidl not found"
 
-        # Build APK using buildozer (more stable than direct P4A)
+        # Build APK using buildozer
         buildozer android debug
 
     - name: Check results
