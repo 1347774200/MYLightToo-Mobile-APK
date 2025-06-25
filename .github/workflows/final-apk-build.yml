@@ -32,7 +32,7 @@ jobs:
         python -m pip install --upgrade pip setuptools wheel
         pip install python-for-android==2024.1.21 cython==0.29.36
 
-    - name: Setup Android SDK with AIDL
+    - name: Setup Android SDK for P4A
       run: |
         # Create Android SDK directory
         mkdir -p $HOME/android-sdk
@@ -43,48 +43,50 @@ jobs:
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
 
-        # Download and manually install build-tools with AIDL
-        echo "Downloading Android Build Tools directly..."
+        # Download and install command line tools
         cd $HOME/android-sdk
-        mkdir -p build-tools/30.0.3
+        mkdir -p cmdline-tools
+        cd cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mv cmdline-tools latest
 
-        # Download build-tools zip directly
-        wget -q https://dl.google.com/android/repository/build-tools_r30.0.3-linux.zip
-        unzip -q build-tools_r30.0.3-linux.zip -d build-tools/30.0.3/
+        # Add cmdline-tools to PATH
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin
 
-        # Move files to correct location
-        if [ -d "build-tools/30.0.3/android-11" ]; then
-          mv build-tools/30.0.3/android-11/* build-tools/30.0.3/
-          rm -rf build-tools/30.0.3/android-11
-        fi
+        # Accept licenses
+        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-        # Make all tools executable
-        chmod +x build-tools/30.0.3/*
+        # Install required SDK components
+        echo "Installing SDK components..."
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
 
-        # Verify AIDL is there
-        echo "Checking for AIDL..."
-        ls -la build-tools/30.0.3/aidl || echo "AIDL not found"
-
-        # Create symlink for AIDL
-        if [ -f "build-tools/30.0.3/aidl" ]; then
-          sudo ln -sf $ANDROID_HOME/build-tools/30.0.3/aidl /usr/local/bin/aidl
-          echo "AIDL symlink created"
-        fi
-
-        # Download platform-tools
-        echo "Downloading platform-tools..."
-        wget -q https://dl.google.com/android/repository/platform-tools-latest-linux.zip
-        unzip -q platform-tools-latest-linux.zip
-        chmod +x platform-tools/*
-
-        # Add to PATH
-        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+        # Add platform-tools to PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
 
-        # Final verification
-        echo "AIDL verification:"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL file not found"
-        which aidl || echo "AIDL not in PATH yet"
+        # Download NDK for P4A
+        echo "Downloading Android NDK..."
+        cd $HOME/android-sdk
+        wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+        unzip -q android-ndk-r21e-linux-x86_64.zip
+        mv android-ndk-r21e ndk/21.4.7075529
+
+        # Set NDK environment
+        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529" >> $GITHUB_ENV
+
+        # Verify SDK structure
+        echo "SDK verification:"
+        ls -la $HOME/android-sdk/
+        echo "Command line tools:"
+        ls -la $HOME/android-sdk/cmdline-tools/latest/bin/ | head -10
+        echo "Platform tools:"
+        ls -la $HOME/android-sdk/platform-tools/ | head -5
+        echo "Build tools:"
+        ls -la $HOME/android-sdk/build-tools/30.0.3/ | head -10
 
     - name: Verify tools
       run: |
@@ -93,9 +95,11 @@ jobs:
         java -version
         echo "Ant version:"
         ant -version
-        echo "AIDL check:"
-        which aidl || echo "AIDL not found"
-        aidl --help 2>/dev/null || echo "AIDL not working"
+        echo "Android SDK tools:"
+        which sdkmanager || echo "sdkmanager not found"
+        which adb || echo "adb not found"
+        echo "P4A version:"
+        p4a --version
 
     - name: Create app
       run: |
@@ -146,14 +150,16 @@ jobs:
     - name: Build APK with P4A
       working-directory: app_build
       run: |
-        # Set environment variables
+        # Set environment variables for P4A
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
+        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
 
-        # Set P4A environment variables
+        # Set P4A specific environment variables
         export ANDROIDAPI="30"
         export NDKAPI="21"
+        export P4A_BOOTSTRAP="sdl2"
 
         echo "Starting P4A build process..."
         echo "Environment check:"
