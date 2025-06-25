@@ -1,4 +1,4 @@
-name: Clean Build
+name: Simple Build
 
 on:
   workflow_dispatch:
@@ -16,128 +16,159 @@ jobs:
       with:
         python-version: '3.8'
 
-    - name: Setup Java
+    - name: Setup Java 11
       uses: actions/setup-java@v4
       with:
-        java-version: '8'
+        java-version: '11'
         distribution: 'temurin'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential git unzip wget curl openjdk-8-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils
-
-    - name: Setup Android SDK
-      run: |
-        mkdir -p $HOME/android-sdk/cmdline-tools
-        cd $HOME/android-sdk/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        mv cmdline-tools latest
-        
-        export ANDROID_HOME=$HOME/android-sdk
-        export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-        
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
-        
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" "ndk;21.4.7075529"
+        sudo apt-get install -y build-essential git unzip wget curl autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils
 
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip setuptools wheel
         pip install buildozer==1.5.0 cython==0.29.36
 
-    - name: Create app files
+    - name: Setup Android SDK with older version
+      run: |
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        cd $HOME/android-sdk/cmdline-tools
+        
+        # Use older command line tools that work better with Java 11
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
+        unzip -q commandlinetools-linux-8512546_latest.zip
+        mv cmdline-tools latest
+        
+        export ANDROID_HOME=$HOME/android-sdk
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/29.0.3
+        
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/build-tools/29.0.3" >> $GITHUB_PATH
+        
+        # Accept licenses and install components
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.3" "ndk;21.4.7075529"
+
+    - name: Create simple app
       run: |
         mkdir -p build_dir
         cd build_dir
         
-        echo 'from kivy.app import App' > main.py
-        echo 'from kivy.uix.label import Label' >> main.py
-        echo '' >> main.py
-        echo 'class TestApp(App):' >> main.py
-        echo '    def build(self):' >> main.py
-        echo '        return Label(text="APK Build Success", font_size="20sp")' >> main.py
-        echo '' >> main.py
-        echo 'if __name__ == "__main__":' >> main.py
-        echo '    TestApp().run()' >> main.py
-        
-        echo '[app]' > buildozer.spec
-        echo 'title = Test App' >> buildozer.spec
-        echo 'package.name = testapp' >> buildozer.spec
-        echo 'package.domain = com.test.app' >> buildozer.spec
-        echo 'source.dir = .' >> buildozer.spec
-        echo 'source.include_exts = py' >> buildozer.spec
-        echo 'version = 1.0' >> buildozer.spec
-        echo 'requirements = python3,kivy' >> buildozer.spec
-        echo 'orientation = portrait' >> buildozer.spec
-        echo '' >> buildozer.spec
-        echo '[buildozer]' >> buildozer.spec
-        echo 'log_level = 2' >> buildozer.spec
-        echo '' >> buildozer.spec
-        echo 'android.permissions = INTERNET' >> buildozer.spec
-        echo 'android.api = 30' >> buildozer.spec
-        echo 'android.minapi = 21' >> buildozer.spec
-        echo 'android.sdk = 30' >> buildozer.spec
-        echo 'android.ndk = 21.4.7075529' >> buildozer.spec
-        echo 'android.ndk_api = 21' >> buildozer.spec
-        echo 'android.accept_sdk_license = True' >> buildozer.spec
-        echo 'android.archs = armeabi-v7a' >> buildozer.spec
+        # Create main.py
+        cat > main.py << 'PYEOF'
+from kivy.app import App
+from kivy.uix.label import Label
 
-    - name: Verify AIDL
+class SimpleApp(App):
+    def build(self):
+        return Label(text='Hello APK Build', font_size='24sp')
+
+SimpleApp().run()
+PYEOF
+        
+        # Create buildozer.spec
+        cat > buildozer.spec << 'SPECEOF'
+[app]
+title = Simple App
+package.name = simpleapp
+package.domain = com.test.simple
+source.dir = .
+source.include_exts = py
+version = 1.0
+requirements = python3,kivy
+orientation = portrait
+
+[buildozer]
+log_level = 2
+
+android.permissions = INTERNET
+android.api = 29
+android.minapi = 21
+android.sdk = 29
+android.ndk = 21.4.7075529
+android.ndk_api = 21
+android.accept_sdk_license = True
+android.archs = armeabi-v7a
+SPECEOF
+
+        echo "Files created:"
+        ls -la
+        echo "main.py content:"
+        cat main.py
+        echo "buildozer.spec content:"
+        cat buildozer.spec
+
+    - name: Verify environment
       run: |
-        export ANDROID_HOME=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/build-tools/30.0.3
-        which aidl || echo "AIDL not found"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL file not found"
+        echo "Java version:"
+        java -version
+        echo "Python version:"
+        python --version
+        echo "Buildozer version:"
+        buildozer --version
+        echo "Android SDK location:"
+        ls -la $HOME/android-sdk/ || echo "SDK not found"
+        echo "Build tools:"
+        ls -la $HOME/android-sdk/build-tools/ || echo "Build tools not found"
+        echo "AIDL check:"
+        find $HOME/android-sdk -name "aidl" -type f || echo "AIDL not found"
 
     - name: Build APK
       working-directory: build_dir
       run: |
-        export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
-        export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/29.0.3:$PATH
         
-        echo "Environment check:"
-        java -version
-        python --version
-        buildozer --version
-        which aidl || echo "AIDL not in PATH"
+        echo "Starting build..."
+        echo "Environment variables:"
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "JAVA_HOME: $JAVA_HOME"
         
+        # Clean and build
         rm -rf .buildozer bin
         buildozer android debug
 
-    - name: Check results
+    - name: Check build results
       working-directory: build_dir
       run: |
-        find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK found"
+        echo "Looking for APK files:"
+        find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK files found"
+        
         if [ -d "bin" ]; then
+          echo "Contents of bin directory:"
           ls -la bin/
+        else
+          echo "No bin directory found"
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: test-apk
+        name: simple-apk
         path: build_dir/bin/*.apk
         retention-days: 30
 
-    - name: Summary
+    - name: Build summary
       run: |
         cd build_dir
-        if find . -name "*.apk" -type f | grep -q .; then
-          echo "Build successful!"
+        APK_COUNT=$(find . -name "*.apk" -type f | wc -l)
+        
+        if [ $APK_COUNT -gt 0 ]; then
+          echo "SUCCESS: Found $APK_COUNT APK file(s)"
           find . -name "*.apk" -type f -exec basename {} \;
+          echo "Download from Artifacts section above"
         else
-          echo "Build failed!"
+          echo "FAILED: No APK files generated"
+          echo "Check the build logs for errors"
           exit 1
         fi
