@@ -263,6 +263,3 @@ warn_on_root = 1
 #data/audio/*.wav
 #data/images/original/*
 #
-
-
-
