@@ -90,8 +90,8 @@ jobs:
         echo "📋 查找包含buildozer.spec的目录:"
         find . -name "buildozer.spec" -type f
 
-        # 项目文件在 "GMA2_UDP_Tool - 副本" 目录中
-        PROJECT_DIR="GMA2_UDP_Tool - 副本"
+        # 项目文件在 ".github/GMA2_UDP_Tool - 副本" 目录中
+        PROJECT_DIR=".github/GMA2_UDP_Tool - 副本"
 
         if [ -d "$PROJECT_DIR" ]; then
           echo "✅ Found project directory: $PROJECT_DIR"
