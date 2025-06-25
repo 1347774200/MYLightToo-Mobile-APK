@@ -87,10 +87,11 @@ jobs:
         echo "Downloading Apache Ant..."
         wget -q https://archive.apache.org/dist/ant/binaries/apache-ant-1.9.4-bin.tar.gz
         tar -xzf apache-ant-1.9.4-bin.tar.gz
-        mv apache-ant-1.9.4 apache-ant-1.9.4
 
+        # Verify extraction
         echo "Apache Ant downloaded and extracted"
         ls -la $HOME/.buildozer/android/platform/
+        ls -la $HOME/.buildozer/android/platform/apache-ant-1.9.4/ || echo "Ant directory not found"
 
     - name: Create app
       run: |
