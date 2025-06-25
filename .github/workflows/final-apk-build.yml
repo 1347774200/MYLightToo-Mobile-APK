@@ -30,7 +30,7 @@ jobs:
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install buildozer==1.5.0 cython==0.29.36
+        pip install python-for-android==2024.1.21 cython==0.29.36
 
     - name: Setup Android SDK with AIDL
       run: |
@@ -143,69 +143,46 @@ jobs:
         echo "buildozer.spec:"
         cat buildozer.spec
 
-    - name: Build APK
+    - name: Build APK with P4A
       working-directory: app_build
       run: |
-        # Set environment variables with correct build-tools version
+        # Set environment variables
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
+        export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
 
-        # Set additional environment variables to avoid downloads
+        # Set P4A environment variables
         export ANDROIDAPI="30"
         export NDKAPI="21"
-        export ANDROID_NDK_VERSION="21.4.7075529"
-        export ANT_HOME="/usr/share/ant"
 
-        echo "Starting build process..."
+        echo "Starting P4A build process..."
         echo "Environment check:"
         echo "Java version:"
         java -version
         echo "Python version:"
         python --version
-        echo "Buildozer version:"
-        buildozer --version
+        echo "P4A version:"
+        p4a --version
 
         echo "Android SDK structure:"
         ls -la $ANDROID_HOME/
-        echo "Build tools:"
-        ls -la $ANDROID_HOME/build-tools/
 
-        echo "AIDL verification:"
-        which aidl || echo "AIDL not in PATH"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/aidl || echo "AIDL file not found"
-
-        # Try to find AIDL anywhere in Android SDK
-        echo "Searching for AIDL in Android SDK:"
-        find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "No AIDL found in Android SDK"
-
-        # If AIDL not in PATH, try to add it manually
-        if ! which aidl >/dev/null 2>&1; then
-          echo "AIDL not in PATH, trying to fix..."
-          if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then
-            export PATH=$ANDROID_HOME/build-tools/30.0.3:$PATH
-            echo "Added build-tools to PATH"
-          fi
-        fi
-
-        echo "PATH contains:"
-        echo $PATH | tr ':' '\n' | grep android || echo "No android paths found"
-
-        # Final AIDL test
-        echo "Final AIDL test:"
-        aidl --help 2>/dev/null && echo "AIDL is working" || echo "AIDL still not working"
-
-        # Clean and build
-        rm -rf .buildozer bin
-        echo "Starting buildozer..."
-        buildozer android debug
+        # Build APK using P4A directly (bypasses AIDL requirement)
+        echo "Building APK with P4A..."
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=sdl2 --requirements=python3,kivy --arch=armeabi-v7a --permission INTERNET
 
     - name: Check results
       working-directory: app_build
       run: |
         echo "Searching for APK files:"
         find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK found"
+
+        # P4A creates APK in dist directory
+        if [ -d "dist" ]; then
+          echo "Dist directory:"
+          ls -la dist/
+        fi
+
         if [ -d "bin" ]; then
           echo "Bin directory:"
           ls -la bin/
@@ -216,7 +193,9 @@ jobs:
       if: always()
       with:
         name: test-apk
-        path: app_build/bin/*.apk
+        path: |
+          app_build/dist/*.apk
+          app_build/bin/*.apk
         retention-days: 30
 
     - name: Summary
