@@ -19,7 +19,7 @@ jobs:
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: '8'
+        java-version: '11'
         distribution: 'temurin'
 
     - name: Install dependencies
@@ -60,25 +60,25 @@ jobs:
 
         # Install required SDK components
         $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-28"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
 
         # Add platform-tools to PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/28.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
 
-        # Download NDK 21e for P4A compatibility
-        echo "Downloading Android NDK 21e..."
+        # Download NDK 25b for better compatibility
+        echo "Downloading Android NDK 25b..."
         cd $HOME/android-sdk
-        wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
-        unzip -q android-ndk-r21e-linux-x86_64.zip
+        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+        unzip -q android-ndk-r25b-linux.zip
 
         # Create ndk directory and move NDK
         mkdir -p ndk
-        mv android-ndk-r21e ndk/21.4.7075529
+        mv android-ndk-r25b ndk/25.2.9519653
 
         # Set NDK environment
-        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
 
     - name: Create simple app
       run: |
@@ -100,8 +100,8 @@ jobs:
         # Set environment variables
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/28.0.3:$PATH
+        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
 
         echo "Building APK with P4A..."
         echo "Environment check:"
