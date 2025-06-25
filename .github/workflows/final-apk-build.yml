@@ -1,4 +1,4 @@
-name: APK Build - Manual Minimal Setup
+name: APK Build - Real Android SDK
 
 on:
   workflow_dispatch:
@@ -19,61 +19,57 @@ jobs:
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: '8'
+        java-version: '11'
         distribution: 'temurin'
 
-    - name: Create complete fake Android environment
+    - name: Install real Android SDK manually
       run: |
-        # Create comprehensive fake Android SDK structure
-        mkdir -p $HOME/android-sdk/platforms/android-30
-        mkdir -p $HOME/android-sdk/build-tools/30.0.3
-        mkdir -p $HOME/android-sdk/platform-tools
-        mkdir -p $HOME/android-sdk/cmdline-tools/latest/bin
-        mkdir -p $HOME/android-sdk/tools/bin
+        # Download and install Android SDK manually
+        mkdir -p $HOME/android-sdk
+        cd $HOME/android-sdk
 
-        # Create fake aidl executable
-        echo '#!/bin/bash' > $HOME/android-sdk/build-tools/30.0.3/aidl
-        echo 'echo "Fake AIDL v1.0"' >> $HOME/android-sdk/build-tools/30.0.3/aidl
-        chmod +x $HOME/android-sdk/build-tools/30.0.3/aidl
+        # Download command line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
 
-        # Create fake sdkmanager executable
-        echo '#!/bin/bash' > $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-        echo 'echo "Fake sdkmanager"' >> $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-        echo 'echo "Available packages:"' >> $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-        echo 'echo "platforms;android-30"' >> $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-        chmod +x $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager
-
-        # Create fake android tool (legacy)
-        echo '#!/bin/bash' > $HOME/android-sdk/tools/bin/android
-        echo 'echo "Fake android tool"' >> $HOME/android-sdk/tools/bin/android
-        chmod +x $HOME/android-sdk/tools/bin/android
-
-        # Create fake adb
-        echo '#!/bin/bash' > $HOME/android-sdk/platform-tools/adb
-        echo 'echo "Fake ADB"' >> $HOME/android-sdk/platform-tools/adb
-        chmod +x $HOME/android-sdk/platform-tools/adb
+        # Fix directory structure
+        mkdir -p cmdline-tools
+        mv cmdline-tools temp
+        mkdir -p cmdline-tools/latest
+        mv temp/* cmdline-tools/latest/
+        rmdir temp
 
         # Set environment variables
+        export ANDROID_HOME=$HOME/android-sdk
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+
+        # Add to GitHub environment
         echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
         echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/tools/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
-        echo "Complete fake Android SDK created at $HOME/android-sdk"
-        echo "Fake tools created:"
-        ls -la $HOME/android-sdk/cmdline-tools/latest/bin/
-        ls -la $HOME/android-sdk/tools/bin/
-        ls -la $HOME/android-sdk/build-tools/30.0.3/
-        ls -la $HOME/android-sdk/platform-tools/
+        # Accept licenses and install minimal components
+        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-28"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3"
 
-    - name: Install Python packages only
+        # Add build-tools to PATH
+        echo "$HOME/android-sdk/build-tools/28.0.3" >> $GITHUB_PATH
+
+        echo "Real Android SDK installed successfully"
+        echo "Verifying tools:"
+        ls -la $HOME/android-sdk/cmdline-tools/latest/bin/
+        ls -la $HOME/android-sdk/build-tools/28.0.3/ | head -10
+
+    - name: Install Python packages and dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
         pip install python-for-android==2022.9.4 cython==0.29.36
 
-        # Install minimal system dependencies
+        # Install system dependencies
         sudo apt-get update
         sudo apt-get install -y \
           build-essential \
@@ -81,7 +77,16 @@ jobs:
           unzip \
           wget \
           curl \
-          python3-dev
+          python3-dev \
+          autoconf \
+          libtool \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          cmake \
+          libffi-dev \
+          libssl-dev
 
         # Verify installations
         echo "Installed packages:"
@@ -105,7 +110,7 @@ jobs:
         echo "Created main.py:"
         cat main.py
 
-    - name: Build APK with P4A directly
+    - name: Build APK with P4A
       working-directory: app_build
       run: |
         echo "Building APK with P4A..."
@@ -114,24 +119,20 @@ jobs:
         python --version
         p4a --version || echo "P4A not found"
 
-        # Test all fake tools
-        echo "Testing fake Android tools:"
+        # Test real Android tools
+        echo "Testing real Android tools:"
         echo "ANDROID_HOME: $ANDROID_HOME"
         echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-        which aidl && aidl || echo "AIDL test failed"
         which sdkmanager && sdkmanager --version || echo "sdkmanager test failed"
-        which android && android --help || echo "android tool test failed"
         which adb && adb version || echo "adb test failed"
+        find $ANDROID_HOME -name "aidl" -type f || echo "AIDL not found"
 
         # Set environment variables for P4A
-        export ANDROIDAPI="30"
+        export ANDROIDAPI="28"
         export NDKAPI="21"
 
-        # Build APK using P4A with service_only bootstrap (simplest)
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a || {
-          echo "Service_only failed, trying webview..."
-          p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=webview --requirements=python3 --arch=armeabi-v7a
-        }
+        # Build APK using P4A with service_only bootstrap
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a
 
     - name: Check results
       working-directory: app_build
