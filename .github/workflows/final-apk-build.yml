@@ -176,9 +176,15 @@ jobs:
         echo "Android SDK structure:"
         ls -la $ANDROID_HOME/
 
-        # Build APK using P4A directly (bypasses AIDL requirement)
-        echo "Building APK with P4A..."
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=sdl2 --requirements=python3,kivy --arch=armeabi-v7a --permission INTERNET
+        # Copy simple Android main file
+        cp android_main.py main.py
+
+        # Try building with empty bootstrap first (simplest)
+        echo "Building APK with empty bootstrap..."
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=empty --requirements=python3 --arch=armeabi-v7a --permission INTERNET --ignore-setup-py || {
+          echo "Empty bootstrap failed, trying service_only..."
+          p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a --permission INTERNET --ignore-setup-py
+        }
 
     - name: Check results
       working-directory: app_build
