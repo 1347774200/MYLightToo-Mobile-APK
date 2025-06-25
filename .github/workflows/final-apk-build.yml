@@ -60,22 +60,20 @@ jobs:
         mkdir -p $HOME/android-sdk/tools/bin
 
         # Create fake android tool that P4A 2021.9.5 expects
-        cat > $HOME/android-sdk/tools/bin/android << 'EOF'
-#!/bin/bash
-# Fake android tool for P4A compatibility
-if [ "$1" = "list" ] && [ "$2" = "target" ]; then
-  echo "Available Android targets:"
-  echo "----------"
-  echo "id: 1 or \"android-27\""
-  echo "     Name: Android 8.1 (API level 27)"
-  echo "     Type: Platform"
-  echo "     API level: 27"
-  echo "     Revision: 3"
-else
-  echo "Android SDK Manager"
-  echo "Usage: android [global options] action [action options]"
-fi
-EOF
+        echo '#!/bin/bash' > $HOME/android-sdk/tools/bin/android
+        echo '# Fake android tool for P4A compatibility' >> $HOME/android-sdk/tools/bin/android
+        echo 'if [ "$1" = "list" ] && [ "$2" = "target" ]; then' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "Available Android targets:"' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "----------"' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "id: 1 or \"android-27\""' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "     Name: Android 8.1 (API level 27)"' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "     Type: Platform"' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "     API level: 27"' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "     Revision: 3"' >> $HOME/android-sdk/tools/bin/android
+        echo 'else' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "Android SDK Manager"' >> $HOME/android-sdk/tools/bin/android
+        echo '  echo "Usage: android [global options] action [action options]"' >> $HOME/android-sdk/tools/bin/android
+        echo 'fi' >> $HOME/android-sdk/tools/bin/android
         chmod +x $HOME/android-sdk/tools/bin/android
 
         # Add all tools to PATH
