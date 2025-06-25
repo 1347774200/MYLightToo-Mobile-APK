@@ -58,14 +58,16 @@ jobs:
         # Accept licenses
         yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-        # Install required SDK components
+        # Install required SDK components including API 33
         $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
         $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
         $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
 
         # Add platform-tools to PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/build-tools/33.0.2" >> $GITHUB_PATH
 
         # Download NDK 25b for better compatibility
         echo "Downloading Android NDK 25b..."
@@ -101,7 +103,7 @@ jobs:
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/33.0.2:$PATH
 
         echo "Building APK with P4A..."
         echo "Environment check:"
@@ -109,8 +111,12 @@ jobs:
         python --version
         p4a --version
 
-        # Build APK with minimal parameters (service_only bootstrap)
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a
+        # Set P4A API versions explicitly
+        export ANDROIDAPI="33"
+        export NDKAPI="21"
+
+        # Build APK with explicit API versions
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a --api=33 --ndk-api=21
 
     - name: Check results
       working-directory: app_build
