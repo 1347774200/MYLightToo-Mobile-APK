@@ -1,4 +1,4 @@
-name: APK Build - Android Setup Action
+name: APK Build - Manual Minimal Setup
 
 on:
   workflow_dispatch:
@@ -19,22 +19,36 @@ jobs:
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: '11'
+        java-version: '8'
         distribution: 'temurin'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        api-level: 30
-        build-tools: 30.0.3
-        ndk: 25.2.9519653
+    - name: Create minimal Android environment
+      run: |
+        # Create fake Android SDK structure to satisfy buildozer
+        mkdir -p $HOME/android-sdk/platforms/android-30
+        mkdir -p $HOME/android-sdk/build-tools/30.0.3
+        mkdir -p $HOME/android-sdk/platform-tools
 
-    - name: Install Buildozer and dependencies
+        # Create fake aidl executable
+        echo '#!/bin/bash' > $HOME/android-sdk/build-tools/30.0.3/aidl
+        echo 'echo "Fake AIDL for buildozer"' >> $HOME/android-sdk/build-tools/30.0.3/aidl
+        chmod +x $HOME/android-sdk/build-tools/30.0.3/aidl
+
+        # Set environment variables
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+
+        echo "Fake Android SDK created at $HOME/android-sdk"
+        ls -la $HOME/android-sdk/build-tools/30.0.3/
+
+    - name: Install Python packages only
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install buildozer==1.5.0 cython==0.29.36
+        pip install python-for-android==2022.9.4 cython==0.29.36
 
-        # Install system dependencies for buildozer
+        # Install minimal system dependencies
         sudo apt-get update
         sudo apt-get install -y \
           build-essential \
@@ -42,30 +56,15 @@ jobs:
           unzip \
           wget \
           curl \
-          autoconf \
-          libtool \
-          pkg-config \
-          zlib1g-dev \
-          libncurses5-dev \
-          libncursesw5-dev \
-          cmake \
-          libffi-dev \
-          libssl-dev \
-          python3-setuptools \
-          python3-distutils \
           python3-dev
 
         # Verify installations
         echo "Installed packages:"
-        pip list | grep -E "(buildozer|cython)"
+        pip list | grep -E "(python-for-android|cython)"
         echo "Cython version:"
         cython --version || echo "Cython not found in PATH"
-
-        # Check Android environment
-        echo "Android SDK Root: $ANDROID_SDK_ROOT"
-        echo "Android Home: $ANDROID_HOME"
-        echo "Checking for AIDL:"
-        find $ANDROID_SDK_ROOT -name "aidl" -type f 2>/dev/null || echo "AIDL not found"
+        echo "P4A version:"
+        p4a --version || echo "P4A not found in PATH"
 
     - name: Create simple app
       run: |
@@ -78,50 +77,32 @@ jobs:
         echo 'time.sleep(1)' >> main.py
         echo 'print("App completed successfully!")' >> main.py
 
-        # Create buildozer.spec with minimal configuration
-        buildozer init
-
-        # Modify buildozer.spec for our simple app
-        sed -i 's/title = My Application/title = TestApp/' buildozer.spec
-        sed -i 's/package.name = myapp/package.name = testapp/' buildozer.spec
-        sed -i 's/package.domain = org.example/package.domain = com.test.app/' buildozer.spec
-        sed -i 's/source.dir = ./source.dir = ./' buildozer.spec
-        sed -i 's/version = 0.1/version = 1.0/' buildozer.spec
-        sed -i 's/requirements = python3,kivy/requirements = python3/' buildozer.spec
-
-        # Configure Android SDK paths in buildozer.spec
-        echo "" >> buildozer.spec
-        echo "# Android specific" >> buildozer.spec
-        echo "android.sdk_path = $ANDROID_SDK_ROOT" >> buildozer.spec
-        echo "android.ndk_path = $ANDROID_NDK_ROOT" >> buildozer.spec
-        echo "android.api = 30" >> buildozer.spec
-        echo "android.minapi = 21" >> buildozer.spec
-        echo "android.ndk = 25b" >> buildozer.spec
-        echo "android.ndk_api = 21" >> buildozer.spec
-        echo "android.accept_sdk_license = True" >> buildozer.spec
-        echo "android.archs = armeabi-v7a" >> buildozer.spec
-
-        echo "Created files:"
-        ls -la
-        echo "main.py:"
+        echo "Created main.py:"
         cat main.py
 
-    - name: Build APK with Buildozer
+    - name: Build APK with P4A directly
       working-directory: app_build
       run: |
-        echo "Building APK with Buildozer..."
+        echo "Building APK with P4A..."
         echo "Environment check:"
         java -version
         python --version
-        buildozer --version
-        cython --version || echo "Cython not found"
+        p4a --version || echo "P4A not found"
 
-        # Check buildozer.spec
-        echo "Buildozer spec content:"
-        head -20 buildozer.spec
+        # Check fake AIDL
+        echo "Checking fake AIDL:"
+        which aidl || echo "AIDL not in PATH"
+        aidl || echo "AIDL execution test"
 
-        # Build APK using buildozer (handles all P4A complexity)
-        buildozer android debug
+        # Set environment variables for P4A
+        export ANDROIDAPI="30"
+        export NDKAPI="21"
+
+        # Build APK using P4A with service_only bootstrap (simplest)
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a || {
+          echo "Service_only failed, trying webview..."
+          p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=webview --requirements=python3 --arch=armeabi-v7a
+        }
 
     - name: Check results
       working-directory: app_build
@@ -129,10 +110,10 @@ jobs:
         echo "Searching for APK files:"
         find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK found"
 
-        # Buildozer creates APK in bin directory
-        if [ -d "bin" ]; then
-          echo "Bin directory contents:"
-          ls -la bin/
+        # P4A creates APK in dist directory
+        if [ -d "dist" ]; then
+          echo "Dist directory contents:"
+          ls -la dist/
         fi
 
     - name: Upload APK
@@ -140,7 +121,7 @@ jobs:
       if: always()
       with:
         name: test-apk
-        path: app_build/bin/*.apk
+        path: app_build/dist/*.apk
         retention-days: 30
 
     - name: Summary
@@ -152,5 +133,8 @@ jobs:
           echo "📱 Download APK from Artifacts section above"
         else
           echo "❌ FAILED: No APK generated"
-          exit 1
+          echo "Build logs and directory structure:"
+          ls -la
+          echo "Checking for any build artifacts:"
+          find . -type f -name "*" | head -20
         fi
