@@ -111,12 +111,12 @@ jobs:
         python --version
         p4a --version
 
-        # Set P4A API versions explicitly
+        # Set P4A API versions through environment variables
         export ANDROIDAPI="33"
         export NDKAPI="21"
 
-        # Build APK with explicit API versions
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a --api=33 --ndk-api=21
+        # Build APK (P4A will use environment variables for API versions)
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a
 
     - name: Check results
       working-directory: app_build
