@@ -85,12 +85,15 @@ jobs:
           # Accept licenses
           yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-          # Install SDK components
+          # Install SDK components including API 33
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2"
 
-          # Add build-tools to PATH
+          # Add build-tools to PATH (use latest version)
+          echo "$HOME/android-sdk/build-tools/33.0.2" >> $GITHUB_PATH
           echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
 
           echo "✅ Android SDK setup completed"
@@ -128,10 +131,18 @@ jobs:
         python --version
         p4a --version
 
+        # Set P4A environment variables for API 33
+        export ANDROIDAPI="33"
+        export NDKAPI="21"
+
+        # Check available platforms
+        echo "Available Android platforms:"
+        ls -la $ANDROID_HOME/platforms/ || echo "No platforms directory"
+
         # Check if AIDL is available
         echo "Checking for AIDL:"
         find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "AIDL not found"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/ | grep aidl || echo "No aidl in build-tools"
+        ls -la $ANDROID_HOME/build-tools/33.0.2/ | grep aidl || echo "No aidl in build-tools 33.0.2"
 
         # Build APK using P4A with webview bootstrap (doesn't need AIDL)
         p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=webview --requirements=python3 --arch=armeabi-v7a
