@@ -19,20 +19,20 @@ jobs:
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: '11'
+        java-version: '8'
         distribution: 'temurin'
 
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential git unzip wget curl autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils ant openjdk-8-jdk-headless
+        sudo apt-get install -y build-essential git unzip wget curl autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev python3-setuptools python3-distutils ant
 
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip setuptools wheel
-        pip install python-for-android==2024.1.21 cython==0.29.36
+        pip install python-for-android==2023.6.11 cython==0.29.36
 
-    - name: Setup Android SDK for P4A
+    - name: Setup Android SDK
       run: |
         # Create Android SDK directory
         mkdir -p $HOME/android-sdk
@@ -59,165 +59,60 @@ jobs:
         yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
         # Install required SDK components
-        echo "Installing SDK components..."
         $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-28"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3"
 
         # Add platform-tools to PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/build-tools/28.0.3" >> $GITHUB_PATH
 
-        # Download NDK 25b for P4A
-        echo "Downloading Android NDK 25b..."
+        # Download NDK 21e for P4A compatibility
+        echo "Downloading Android NDK 21e..."
         cd $HOME/android-sdk
-        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-        unzip -q android-ndk-r25b-linux.zip
+        wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+        unzip -q android-ndk-r21e-linux-x86_64.zip
 
         # Create ndk directory and move NDK
         mkdir -p ndk
-        mv android-ndk-r25b ndk/25.2.9519653
+        mv android-ndk-r21e ndk/21.4.7075529
 
         # Set NDK environment
-        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529" >> $GITHUB_ENV
 
-        # Verify SDK structure
-        echo "SDK verification:"
-        ls -la $HOME/android-sdk/
-        echo "Command line tools:"
-        ls -la $HOME/android-sdk/cmdline-tools/latest/bin/ | head -10
-        echo "Platform tools:"
-        ls -la $HOME/android-sdk/platform-tools/ | head -5
-        echo "Build tools:"
-        ls -la $HOME/android-sdk/build-tools/30.0.3/ | head -10
-
-    - name: Verify tools
-      run: |
-        echo "Verifying installed tools..."
-        echo "Java version:"
-        java -version
-        echo "Ant version:"
-        ant -version
-        echo "Android SDK tools:"
-        which sdkmanager || echo "sdkmanager not found"
-        which adb || echo "adb not found"
-        echo "P4A version:"
-        p4a --version
-
-    - name: Create app
+    - name: Create simple app
       run: |
         mkdir -p app_build
         cd app_build
 
-        # Create main.py
-        echo "from kivy.app import App" > main.py
-        echo "from kivy.uix.label import Label" >> main.py
-        echo "" >> main.py
-        echo "class TestApp(App):" >> main.py
-        echo "    def build(self):" >> main.py
-        echo "        return Label(text='APK Build Test', font_size='20sp')" >> main.py
-        echo "" >> main.py
-        echo "TestApp().run()" >> main.py
+        # Create extremely simple main.py
+        cat > main.py << 'EOF'
+print("Hello from Python on Android!")
+import time
+time.sleep(1)
+print("App completed successfully!")
+EOF
 
-        # Create buildozer.spec
-        echo "[app]" > buildozer.spec
-        echo "title = Test App" >> buildozer.spec
-        echo "package.name = testapp" >> buildozer.spec
-        echo "package.domain = com.test.app" >> buildozer.spec
-        echo "source.dir = ." >> buildozer.spec
-        echo "source.include_exts = py" >> buildozer.spec
-        echo "version = 1.0" >> buildozer.spec
-        echo "requirements = python3,kivy" >> buildozer.spec
-        echo "orientation = portrait" >> buildozer.spec
-        echo "" >> buildozer.spec
-        echo "[buildozer]" >> buildozer.spec
-        echo "log_level = 2" >> buildozer.spec
-        echo "" >> buildozer.spec
-        echo "android.permissions = INTERNET" >> buildozer.spec
-        echo "android.api = 30" >> buildozer.spec
-        echo "android.minapi = 21" >> buildozer.spec
-        echo "android.sdk = 30" >> buildozer.spec
-        echo "android.ndk = 21.4.7075529" >> buildozer.spec
-        echo "android.ndk_api = 21" >> buildozer.spec
-        echo "android.accept_sdk_license = True" >> buildozer.spec
-        echo "android.archs = armeabi-v7a" >> buildozer.spec
-        echo "android.skip_update = False" >> buildozer.spec
-        echo "android.ant_path = /usr/bin/ant" >> buildozer.spec
-        echo "Files created successfully"
-        ls -la
-        echo "main.py:"
+        echo "Created main.py:"
         cat main.py
-        echo "buildozer.spec:"
-        cat buildozer.spec
 
     - name: Build APK with P4A
       working-directory: app_build
       run: |
-        # Set environment variables for P4A
+        # Set environment variables
         export ANDROID_HOME=$HOME/android-sdk
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/25.2.9519653
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$PATH
+        export ANDROID_NDK_HOME=$HOME/android-sdk/ndk/21.4.7075529
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/28.0.3:$PATH
 
-        # Set P4A specific environment variables
-        export ANDROIDAPI="30"
-        export NDKAPI="21"
-        export P4A_BOOTSTRAP="sdl2"
-
-        echo "Starting P4A build process..."
+        echo "Building APK with P4A..."
         echo "Environment check:"
-        echo "Java version:"
         java -version
-        echo "Python version:"
         python --version
-        echo "P4A version:"
         p4a --version
 
-        echo "Android SDK structure:"
-        ls -la $ANDROID_HOME/
-
-        # Create simple Android main file using echo commands
-        echo '#!/usr/bin/env python3' > simple_main.py
-        echo '# Simple Python service for Android APK' >> simple_main.py
-        echo 'import time' >> simple_main.py
-        echo 'import os' >> simple_main.py
-        echo 'import sys' >> simple_main.py
-        echo '' >> simple_main.py
-        echo 'def main():' >> simple_main.py
-        echo '    print("Python service started on Android!")' >> simple_main.py
-        echo '    print(f"Python version: {sys.version}")' >> simple_main.py
-        echo '    print(f"Platform: {sys.platform}")' >> simple_main.py
-        echo '    ' >> simple_main.py
-        echo '    # Create a simple log file' >> simple_main.py
-        echo '    log_path = "/sdcard/python_service.log"' >> simple_main.py
-        echo '    try:' >> simple_main.py
-        echo '        with open(log_path, "w") as f:' >> simple_main.py
-        echo '            f.write("Python service is running!\\n")' >> simple_main.py
-        echo '            f.write(f"Time: {time.ctime()}\\n")' >> simple_main.py
-        echo '            f.write(f"Python version: {sys.version}\\n")' >> simple_main.py
-        echo '        print(f"Log written to {log_path}")' >> simple_main.py
-        echo '    except Exception as e:' >> simple_main.py
-        echo '        print(f"Could not write log: {e}")' >> simple_main.py
-        echo '    ' >> simple_main.py
-        echo '    # Keep service running for a short time' >> simple_main.py
-        echo '    for i in range(5):' >> simple_main.py
-        echo '        print(f"Service tick {i+1}")' >> simple_main.py
-        echo '        time.sleep(2)' >> simple_main.py
-        echo '    ' >> simple_main.py
-        echo '    print("Service completed successfully!")' >> simple_main.py
-        echo '' >> simple_main.py
-        echo 'if __name__ == "__main__":' >> simple_main.py
-        echo '    main()' >> simple_main.py
-
-        # Use the simple main file
-        cp simple_main.py main.py
-
-        # Try building with service_only bootstrap (add all required parameters)
-        echo "Building APK with service_only bootstrap..."
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a --permission INTERNET --orientation=portrait --debug || {
-          echo "Service_only failed, trying with minimal webview bootstrap..."
-          p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=webview --requirements=python3 --arch=armeabi-v7a --permission INTERNET --orientation=portrait --debug
-        }
+        # Build APK with minimal parameters (service_only bootstrap)
+        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a
 
     - name: Check results
       working-directory: app_build
@@ -227,13 +122,8 @@ jobs:
 
         # P4A creates APK in dist directory
         if [ -d "dist" ]; then
-          echo "Dist directory:"
+          echo "Dist directory contents:"
           ls -la dist/
-        fi
-
-        if [ -d "bin" ]; then
-          echo "Bin directory:"
-          ls -la bin/
         fi
 
     - name: Upload APK
@@ -241,19 +131,17 @@ jobs:
       if: always()
       with:
         name: test-apk
-        path: |
-          app_build/dist/*.apk
-          app_build/bin/*.apk
+        path: app_build/dist/*.apk
         retention-days: 30
 
     - name: Summary
       run: |
         cd app_build
         if find . -name "*.apk" -type f | grep -q .; then
-          echo "SUCCESS: APK build completed"
+          echo "✅ SUCCESS: APK build completed!"
           find . -name "*.apk" -type f -exec basename {} \;
-          echo "Download from Artifacts section"
+          echo "📱 Download APK from Artifacts section above"
         else
-          echo "FAILED: No APK generated"
+          echo "❌ FAILED: No APK generated"
           exit 1
         fi
