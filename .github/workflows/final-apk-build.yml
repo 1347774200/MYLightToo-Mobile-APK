@@ -1,4 +1,4 @@
-name: APK Build - Docker Solution
+name: APK Build - Buildozer Solution
 
 on:
   workflow_dispatch:
@@ -6,31 +6,48 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    container:
-      image: cimg/android:2023.10
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup environment
-      shell: bash
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    - name: Install Buildozer
       run: |
-        # Install Python and pip
+        python -m pip install --upgrade pip setuptools wheel
+        pip install buildozer==1.5.0
+
+        # Install system dependencies for buildozer
         sudo apt-get update
-        sudo apt-get install -y python3 python3-pip python3-venv
-
-        # Install Python packages globally to avoid venv issues
-        sudo pip3 install --upgrade pip setuptools wheel
-        sudo pip3 install python-for-android==2022.9.4 cython==0.29.33
-
-        # Verify installation
-        echo "Python packages installed:"
-        pip3 list | grep -E "(python-for-android|cython)" || echo "Packages not found in list"
-        which p4a || echo "p4a not found in PATH"
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          unzip \
+          wget \
+          curl \
+          autoconf \
+          libtool \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          cmake \
+          libffi-dev \
+          libssl-dev \
+          python3-setuptools \
+          python3-distutils
 
     - name: Create simple app
-      shell: bash
       run: |
         mkdir -p app_build
         cd app_build
@@ -41,37 +58,44 @@ jobs:
         echo 'time.sleep(1)' >> main.py
         echo 'print("App completed successfully!")' >> main.py
 
-        echo "Created main.py:"
+        # Create buildozer.spec with minimal configuration
+        buildozer init
+
+        # Modify buildozer.spec for our simple app
+        sed -i 's/title = My Application/title = TestApp/' buildozer.spec
+        sed -i 's/package.name = myapp/package.name = testapp/' buildozer.spec
+        sed -i 's/package.domain = org.example/package.domain = com.test.app/' buildozer.spec
+        sed -i 's/source.dir = ./source.dir = ./' buildozer.spec
+        sed -i 's/version = 0.1/version = 1.0/' buildozer.spec
+        sed -i 's/requirements = python3,kivy/requirements = python3/' buildozer.spec
+
+        echo "Created files:"
+        ls -la
+        echo "main.py:"
         cat main.py
 
-    - name: Build APK with P4A
+    - name: Build APK with Buildozer
       working-directory: app_build
-      shell: bash
       run: |
-        echo "Building APK with P4A..."
+        echo "Building APK with Buildozer..."
         echo "Environment check:"
         java -version
-        python3 --version
-        p4a --version || echo "p4a not found, trying with full path"
+        python --version
+        buildozer --version
 
-        # Set environment variables
-        export ANDROIDAPI="28"
-        export NDKAPI="21"
-
-        # Build APK using P4A
-        p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a
+        # Build APK using buildozer (handles all P4A complexity)
+        buildozer android debug
 
     - name: Check results
       working-directory: app_build
-      shell: bash
       run: |
         echo "Searching for APK files:"
         find . -name "*.apk" -type f -exec ls -lh {} \; || echo "No APK found"
 
-        # P4A creates APK in dist directory
-        if [ -d "dist" ]; then
-          echo "Dist directory contents:"
-          ls -la dist/
+        # Buildozer creates APK in bin directory
+        if [ -d "bin" ]; then
+          echo "Bin directory contents:"
+          ls -la bin/
         fi
 
     - name: Upload APK
@@ -79,11 +103,10 @@ jobs:
       if: always()
       with:
         name: test-apk
-        path: app_build/dist/*.apk
+        path: app_build/bin/*.apk
         retention-days: 30
 
     - name: Summary
-      shell: bash
       run: |
         cd app_build
         if find . -name "*.apk" -type f | grep -q .; then
