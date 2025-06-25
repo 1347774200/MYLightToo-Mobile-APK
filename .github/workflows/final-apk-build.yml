@@ -176,40 +176,38 @@ jobs:
         echo "Android SDK structure:"
         ls -la $ANDROID_HOME/
 
-        # Create simple Android main file directly
-        cat > simple_main.py << 'EOF'
-#!/usr/bin/env python3
-# Simple Python service for Android APK
-import time
-import os
-import sys
-
-def main():
-    print("Python service started on Android!")
-    print(f"Python version: {sys.version}")
-    print(f"Platform: {sys.platform}")
-
-    # Create a simple log file
-    log_path = "/sdcard/python_service.log"
-    try:
-        with open(log_path, "w") as f:
-            f.write("Python service is running!\n")
-            f.write(f"Time: {time.ctime()}\n")
-            f.write(f"Python version: {sys.version}\n")
-        print(f"Log written to {log_path}")
-    except Exception as e:
-        print(f"Could not write log: {e}")
-
-    # Keep service running for a short time
-    for i in range(5):
-        print(f"Service tick {i+1}")
-        time.sleep(2)
-
-    print("Service completed successfully!")
-
-if __name__ == "__main__":
-    main()
-EOF
+        # Create simple Android main file using echo commands
+        echo '#!/usr/bin/env python3' > simple_main.py
+        echo '# Simple Python service for Android APK' >> simple_main.py
+        echo 'import time' >> simple_main.py
+        echo 'import os' >> simple_main.py
+        echo 'import sys' >> simple_main.py
+        echo '' >> simple_main.py
+        echo 'def main():' >> simple_main.py
+        echo '    print("Python service started on Android!")' >> simple_main.py
+        echo '    print(f"Python version: {sys.version}")' >> simple_main.py
+        echo '    print(f"Platform: {sys.platform}")' >> simple_main.py
+        echo '    ' >> simple_main.py
+        echo '    # Create a simple log file' >> simple_main.py
+        echo '    log_path = "/sdcard/python_service.log"' >> simple_main.py
+        echo '    try:' >> simple_main.py
+        echo '        with open(log_path, "w") as f:' >> simple_main.py
+        echo '            f.write("Python service is running!\\n")' >> simple_main.py
+        echo '            f.write(f"Time: {time.ctime()}\\n")' >> simple_main.py
+        echo '            f.write(f"Python version: {sys.version}\\n")' >> simple_main.py
+        echo '        print(f"Log written to {log_path}")' >> simple_main.py
+        echo '    except Exception as e:' >> simple_main.py
+        echo '        print(f"Could not write log: {e}")' >> simple_main.py
+        echo '    ' >> simple_main.py
+        echo '    # Keep service running for a short time' >> simple_main.py
+        echo '    for i in range(5):' >> simple_main.py
+        echo '        print(f"Service tick {i+1}")' >> simple_main.py
+        echo '        time.sleep(2)' >> simple_main.py
+        echo '    ' >> simple_main.py
+        echo '    print("Service completed successfully!")' >> simple_main.py
+        echo '' >> simple_main.py
+        echo 'if __name__ == "__main__":' >> simple_main.py
+        echo '    main()' >> simple_main.py
 
         # Use the simple main file
         cp simple_main.py main.py
