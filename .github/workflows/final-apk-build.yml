@@ -1,4 +1,4 @@
-name: Simple APK Build - Final Working Version
+name: APK Build - Docker Solution
 
 on:
   workflow_dispatch:
@@ -6,91 +6,29 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    container:
+      image: cimg/android:2023.10
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.8'
-
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        java-version: '8'
-        distribution: 'temurin'
-
-    - name: Install system dependencies
+    - name: Setup environment
       run: |
+        # Install Python and pip
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          git \
-          unzip \
-          wget \
-          curl \
-          autoconf \
-          libtool \
-          pkg-config \
-          zlib1g-dev \
-          libncurses5-dev \
-          libncursesw5-dev \
-          cmake \
-          libffi-dev \
-          libssl-dev \
-          python3-setuptools \
-          python3-distutils \
-          ant \
-          openjdk-8-jdk
+        sudo apt-get install -y python3 python3-pip python3-venv
 
-    - name: Setup Android SDK (Minimal)
-      run: |
-        # Create Android SDK directory
-        mkdir -p $HOME/android-sdk
-        cd $HOME/android-sdk
+        # Create virtual environment
+        python3 -m venv venv
+        source venv/bin/activate
 
-        # Download command line tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-
-        # Fix directory structure
-        mkdir -p cmdline-tools
-        mv cmdline-tools cmdline-tools-temp
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools-temp/* cmdline-tools/latest/
-
-        # Set environment variables
-        export ANDROID_HOME=$HOME/android-sdk
-        export ANDROID_SDK_ROOT=$HOME/android-sdk
-
-        # Add to GitHub environment
-        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-
-        # Install minimal SDK components
-        if [ -f "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" ]; then
-          # Accept licenses
-          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-          # Install only essential components for older API
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-28"
-          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3"
-
-          # Add build-tools to PATH
-          echo "$HOME/android-sdk/build-tools/28.0.3" >> $GITHUB_PATH
-
-          echo "✅ Minimal Android SDK setup completed"
-        fi
-
-    - name: Install Python packages
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
+        # Install Python packages
+        pip install --upgrade pip setuptools wheel
         pip install python-for-android==2022.9.4 cython==0.29.33
+
+        # Add to PATH for subsequent steps
+        echo "$PWD/venv/bin" >> $GITHUB_PATH
 
     - name: Create simple app
       run: |
@@ -98,32 +36,30 @@ jobs:
         cd app_build
 
         # Create extremely simple main.py
-        echo 'print("Hello from Python on Android!")' > main.py
-        echo 'import time' >> main.py
-        echo 'time.sleep(1)' >> main.py
-        echo 'print("App completed successfully!")' >> main.py
+        cat > main.py << 'EOF'
+        print("Hello from Python on Android!")
+        import time
+        time.sleep(1)
+        print("App completed successfully!")
+        EOF
 
         echo "Created main.py:"
         cat main.py
 
-    - name: Build APK with P4A (Stable Version)
+    - name: Build APK with P4A
       working-directory: app_build
       run: |
         echo "Building APK with P4A..."
         echo "Environment check:"
         java -version
-        python --version
+        python3 --version
         p4a --version
 
-        # Set P4A environment variables for older stable API
+        # Set environment variables
         export ANDROIDAPI="28"
         export NDKAPI="21"
 
-        # Check available platforms
-        echo "Available Android platforms:"
-        ls -la $ANDROID_HOME/platforms/ || echo "No platforms directory"
-
-        # Build APK using P4A with service_only bootstrap (simplest, no Gradle issues)
+        # Build APK using P4A
         p4a apk --private . --package=com.test.app --name="TestApp" --version=1.0 --bootstrap=service_only --requirements=python3 --arch=armeabi-v7a
 
     - name: Check results
@@ -150,7 +86,7 @@ jobs:
       run: |
         cd app_build
         if find . -name "*.apk" -type f | grep -q .; then
-          echo "✅ SUCCESS: APK build completed!"
+          echo "🎉 SUCCESS: APK build completed!"
           find . -name "*.apk" -type f -exec basename {} \;
           echo "📱 Download APK from Artifacts section above"
         else
