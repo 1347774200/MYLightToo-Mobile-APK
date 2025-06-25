@@ -1,1 +1,175 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: ☕ Set up JDK 8
+      uses: actions/setup-java@v3
+      with:
+        java-version: '8'
+        distribution: 'temurin'
+        
+    - name: 📦 Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: 📦 Cache Buildozer global directory
+      uses: actions/cache@v3
+      with:
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('**/buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
+          
+    - name: 📦 Cache Buildozer directory
+      uses: actions/cache@v3
+      with:
+        path: .buildozer
+        key: ${{ runner.os }}-buildozer-local-${{ hashFiles('**/buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-local-
+          
+    - name: 🔧 Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3-pip \
+          build-essential \
+          git \
+          unzip \
+          openjdk-8-jdk \
+          autoconf \
+          libtool \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libtinfo5 \
+          cmake \
+          libffi-dev \
+          libssl-dev
+          
+    - name: 🐍 Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install buildozer cython
+        
+    - name: 📁 Prepare project files
+      run: |
+        echo "📋 Repository contents:"
+        ls -la
+
+        # 项目文件在 "GMA2_UDP_Tool - 副本" 目录中
+        PROJECT_DIR="GMA2_UDP_Tool - 副本"
+
+        if [ -d "$PROJECT_DIR" ]; then
+          echo "✅ Found project directory: $PROJECT_DIR"
+          echo "📋 Project directory contents:"
+          ls -la "$PROJECT_DIR/"
+
+          # 创建构建目录并复制文件
+          mkdir -p build_dir
+
+          # 复制主要文件
+          if [ -f "$PROJECT_DIR/main.py" ]; then
+            cp "$PROJECT_DIR/main.py" build_dir/
+            echo "✅ Copied main.py"
+          else
+            echo "❌ main.py not found in $PROJECT_DIR"
+            exit 1
+          fi
+
+          if [ -f "$PROJECT_DIR/mobile_controller_app.py" ]; then
+            cp "$PROJECT_DIR/mobile_controller_app.py" build_dir/
+            echo "✅ Copied mobile_controller_app.py"
+          else
+            echo "❌ mobile_controller_app.py not found in $PROJECT_DIR"
+            exit 1
+          fi
+
+          if [ -f "$PROJECT_DIR/buildozer.spec" ]; then
+            cp "$PROJECT_DIR/buildozer.spec" build_dir/
+            echo "✅ Copied buildozer.spec"
+          else
+            echo "❌ buildozer.spec not found in $PROJECT_DIR"
+            exit 1
+          fi
+
+        else
+          echo "❌ Project directory not found: $PROJECT_DIR"
+          echo "Available directories:"
+          ls -la
+          exit 1
+        fi
+
+        echo "📋 Build directory contents:"
+        ls -la build_dir/
+        
+    - name: 🔨 Build APK with Buildozer
+      working-directory: build_dir
+      run: |
+        echo "🚀 Starting APK build..."
+        echo "Java version:"
+        java -version
+        echo "Python version:"
+        python --version
+        echo "Buildozer version:"
+        buildozer --version
+        
+        # 设置环境变量
+        export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        
+        # 构建APK
+        buildozer android debug
+        
+    - name: 📱 List generated files
+      working-directory: build_dir
+      run: |
+        echo "📁 Build directory contents:"
+        find . -name "*.apk" -type f
+        ls -la bin/ || echo "No bin directory found"
+        
+    - name: 📤 Upload APK artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: multimedia-show-controller-apk
+        path: build_dir/bin/*.apk
+        retention-days: 30
+        
+    - name: 📊 Build summary
+      run: |
+        echo "🎉 APK Build Summary"
+        echo "==================="
+        if [ -f "build_dir/bin/*.apk" ]; then
+          echo "✅ APK build successful!"
+          echo "📱 APK files:"
+          ls -la build_dir/bin/*.apk
+          echo "📦 File size:"
+          du -h build_dir/bin/*.apk
+        else
+          echo "❌ APK build failed!"
+          exit 1
+        fi
 
