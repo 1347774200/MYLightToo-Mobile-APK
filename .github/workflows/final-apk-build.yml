@@ -53,9 +53,19 @@ jobs:
         # Download command line tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -q commandlinetools-linux-9477386_latest.zip
+
+        # The zip creates a 'cmdline-tools' directory, we need to move it to cmdline-tools/latest
         mkdir -p cmdline-tools
-        mv cmdline-tools latest
-        mv latest cmdline-tools/
+        mv cmdline-tools cmdline-tools-temp
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools-temp/* cmdline-tools/latest/
+
+        # Debug: Check directory structure
+        echo "Directory structure after setup:"
+        ls -la $HOME/android-sdk/
+        ls -la $HOME/android-sdk/cmdline-tools/
+        ls -la $HOME/android-sdk/cmdline-tools/latest/
+        ls -la $HOME/android-sdk/cmdline-tools/latest/bin/ || echo "bin directory not found"
 
         # Set environment variables
         export ANDROID_HOME=$HOME/android-sdk
@@ -68,19 +78,27 @@ jobs:
         echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
-        # Accept licenses
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        # Check if sdkmanager exists and install components
+        if [ -f "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" ]; then
+          echo "✅ sdkmanager found, proceeding with installation..."
 
-        # Install SDK components including build-tools (contains AIDL)
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+          # Accept licenses
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-        # Add build-tools to PATH (contains aidl)
-        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+          # Install SDK components
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
 
-        # Verify AIDL installation
-        ls -la $HOME/android-sdk/build-tools/30.0.3/aidl || echo "AIDL not found in build-tools"
+          # Add build-tools to PATH
+          echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+
+          echo "✅ Android SDK setup completed"
+        else
+          echo "❌ ERROR: sdkmanager not found"
+          echo "Searching for sdkmanager..."
+          find $HOME/android-sdk -name "sdkmanager" -type f 2>/dev/null || echo "sdkmanager not found anywhere"
+        fi
 
     - name: Install Python packages
       run: |
